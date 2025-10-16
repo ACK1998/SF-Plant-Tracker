@@ -1,0 +1,1351 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Map marker styles - ensure colors are not overridden */
+.marker-circle {
+  /* Force marker colors to display correctly */
+  background-color: var(--marker-bg-color, inherit) !important;
+}
+
+/* Ensure mapbox canvas has lower z-index than dropdowns */
+.mapboxgl-canvas {
+  z-index: 0 !important;
+}
+
+.mapboxgl-canvas-container {
+  z-index: 0 !important;
+}
+
+/* Force all mapbox elements to have low z-index */
+.mapboxgl-map {
+  z-index: 0 !important;
+}
+
+.mapboxgl-ctrl-group {
+  z-index: 0 !important;
+}
+
+.mapboxgl-ctrl {
+  z-index: 0 !important;
+}
+
+/* Ensure dropdowns have maximum z-index */
+[data-dropdown="true"] {
+  z-index: var(--z-dropdown) !important; /* Use 100 instead of 99999 */
+}
+
+/* Force dropdown containers to be above everything */
+.dropdown-container {
+  z-index: var(--z-dropdown) !important; /* Use 100 instead of 99999 */
+  position: relative !important;
+}
+
+/* Specific marker color classes using data attributes */
+.marker-circle[data-marker-type="domain"] {
+  background-color: #7C3AED !important;
+}
+
+.marker-circle[data-marker-type="plot"] {
+  background-color: #2563EB !important;
+}
+
+.marker-circle[data-marker-type="plant"] {
+  background-color: #059669 !important;
+}
+
+/* Fallback classes */
+.marker-domain {
+  background-color: #7C3AED !important;
+}
+
+.marker-plot {
+  background-color: #2563EB !important;
+}
+
+.marker-plant {
+  background-color: #059669 !important;
+}
+
+/* CSS Custom Properties for consistent theming */
+:root {
+  /* Colors */
+  --color-primary: 34 197 94; /* plant-green-500 */
+  --color-primary-dark: 22 163 74; /* plant-green-600 */
+  --color-primary-light: 74 222 128; /* plant-green-400 */
+  
+  /* Neutral colors */
+  --color-gray-50: 249 250 251;
+  --color-gray-100: 243 244 246;
+  --color-gray-200: 229 231 235;
+  --color-gray-300: 209 213 219;
+  --color-gray-400: 156 163 175;
+  --color-gray-500: 107 114 128;
+  --color-gray-600: 75 85 99;
+  --color-gray-700: 55 65 81;
+  --color-gray-800: 31 41 55;
+  --color-gray-900: 17 24 39;
+  
+  /* Semantic colors */
+  --color-success: 34 197 94;
+  --color-warning: 234 179 8;
+  --color-error: 239 68 68;
+  --color-info: 59 130 246;
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Typography */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* Z-index hierarchy */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 1000;
+  --z-notification: 2000;
+  --z-tooltip: 3000;
+  
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  
+  /* Backdrop blur */
+  --backdrop-blur: blur(8px);
+}
+
+/* Dark mode variables */
+.dark {
+  --color-gray-50: 17 24 39;
+  --color-gray-100: 31 41 55;
+  --color-gray-200: 55 65 81;
+  --color-gray-300: 75 85 99;
+  --color-gray-400: 107 114 128;
+  --color-gray-500: 156 163 175;
+  --color-gray-600: 209 213 219;
+  --color-gray-700: 229 231 235;
+  --color-gray-800: 243 244 246;
+  --color-gray-900: 249 250 251;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  line-height: 1.6;
+  color: rgb(var(--color-gray-900));
+  background: 
+    /* Mountain silhouette - visible but gentle */
+    linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.04) 30%, transparent 50%),
+    /* Floating fruits and leaves - colorful but not overwhelming */
+    radial-gradient(circle at 85% 15%, rgba(34, 197, 94, 0.12) 0%, transparent 20%),
+    radial-gradient(circle at 15% 25%, rgba(251, 191, 36, 0.10) 0%, transparent 15%),
+    radial-gradient(circle at 75% 35%, rgba(239, 68, 68, 0.08) 0%, transparent 18%),
+    radial-gradient(circle at 25% 65%, rgba(34, 197, 94, 0.10) 0%, transparent 12%),
+    radial-gradient(circle at 90% 75%, rgba(251, 191, 36, 0.09) 0%, transparent 16%),
+    radial-gradient(circle at 10% 85%, rgba(34, 197, 94, 0.07) 0%, transparent 14%),
+    /* Base background */
+    rgb(var(--color-gray-50));
+  background-attachment: fixed;
+  background-size: 100% 100%, 200px 200px, 180px 180px, 160px 160px, 150px 150px, 170px 170px, 140px 140px, 100% 100%;
+  background-position: center top, 85% 15%, 15% 25%, 75% 35%, 25% 65%, 90% 75%, 10% 85%, center;
+  transition: background var(--transition-normal), color var(--transition-normal);
+}
+
+.dark body {
+  color: rgb(var(--color-gray-100));
+  background: 
+    /* Mountain silhouette for dark mode - muted but visible */
+    linear-gradient(180deg, rgba(55, 65, 81, 0.20) 0%, rgba(55, 65, 81, 0.10) 30%, transparent 50%),
+    /* Floating elements - balanced colors for dark theme */
+    radial-gradient(circle at 85% 15%, rgba(34, 197, 94, 0.08) 0%, transparent 25%),
+    radial-gradient(circle at 15% 25%, rgba(59, 130, 246, 0.06) 0%, transparent 20%),
+    radial-gradient(circle at 75% 35%, rgba(168, 85, 247, 0.05) 0%, transparent 22%),
+    radial-gradient(circle at 25% 65%, rgba(34, 197, 94, 0.06) 0%, transparent 18%),
+    radial-gradient(circle at 90% 75%, rgba(59, 130, 246, 0.07) 0%, transparent 20%),
+    radial-gradient(circle at 10% 85%, rgba(34, 197, 94, 0.05) 0%, transparent 16%),
+    /* Base background */
+    rgb(var(--color-gray-900));
+  background-attachment: fixed;
+  background-size: 100% 100%, 250px 250px, 220px 220px, 200px 200px, 180px 180px, 210px 210px, 190px 190px, 100% 100%;
+  background-position: center top, 85% 15%, 15% 25%, 75% 35%, 25% 65%, 90% 75%, 10% 85%, center;
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Smooth transitions for all interactive elements */
+  .transition-all {
+    transition: all var(--transition-normal);
+  }
+  
+  /* Hover effects with transform */
+  .hover-lift {
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* Backdrop blur for modals */
+  .backdrop-blur {
+    backdrop-filter: var(--backdrop-blur);
+    -webkit-backdrop-filter: var(--backdrop-blur);
+  }
+  
+  /* Focus styles for accessibility */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-plant-green-500;
+  }
+  
+  /* Nature background decorations */
+  .nature-background {
+    position: relative;
+    background: 
+      /* Mountain silhouette - subtle gradient */
+      linear-gradient(180deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.02) 30%, transparent 50%),
+      /* Base background */
+      rgb(249, 250, 251);
+    background-attachment: fixed;
+  }
+  
+  .dark .nature-background {
+    background: 
+      /* Mountain silhouette for dark mode */
+      linear-gradient(180deg, rgba(55, 65, 81, 0.15) 0%, rgba(55, 65, 81, 0.05) 30%, transparent 50%),
+      /* Base background */
+      rgb(17, 24, 39);
+    background-attachment: fixed;
+  }
+  
+  /* Nature emoji decorations */
+  .nature-background::before {
+    content: '🌳';
+    position: fixed;
+    left: 3%;
+    bottom: 5%;
+    font-size: 2rem;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+    animation: gentleFloat 25s ease-in-out infinite;
+  }
+  
+  .nature-background::after {
+    content: '🌲';
+    position: fixed;
+    right: 5%;
+    bottom: 8%;
+    font-size: 1.8rem;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+    animation: gentleFloat 30s ease-in-out infinite reverse;
+  }
+  
+  /* Dark mode adjustments for all nature elements */
+  .dark .nature-background::before,
+  .dark .nature-background::after {
+    opacity: 0.15;
+    filter: grayscale(30%) brightness(0.7);
+  }
+  
+  /* Removed problematic rule that was causing modal fog effect */
+  
+  
+  /* Container queries support */
+  .container-responsive {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+  }
+  
+  @media (min-width: 640px) {
+    .container-responsive {
+      max-width: 640px;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .container-responsive {
+      max-width: 768px;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .container-responsive {
+      max-width: 1024px;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .container-responsive {
+      max-width: 1280px;
+    }
+  }
+  
+  /* CSS Grid utilities */
+  .grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+  }
+  
+  .grid-auto-fill {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+  }
+  
+  /* Flexbox utilities */
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn var(--transition-normal) ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp var(--transition-normal) ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn var(--transition-normal) ease-out;
+  }
+  
+  /* Loading states */
+  .loading {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: loading 1.5s infinite;
+  }
+  
+  /* Accessibility utilities */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .border {
+      border-width: 2px;
+    }
+    
+    .shadow-md {
+      box-shadow: 0 0 0 2px currentColor;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Component styles */
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-all focus-ring;
+    min-height: 2.5rem;
+    padding: 0.5rem 1rem;
+  }
+  
+  .btn-primary {
+    @apply btn bg-plant-green-600 text-white hover:bg-plant-green-700 hover-lift;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover-lift dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700;
+  }
+  
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 hover-lift;
+  }
+  
+  /* Input styles */
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus-ring dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    padding: 0.5rem 0.75rem;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-6;
+    transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+  }
+  
+  .card:hover {
+    @apply shadow-lg;
+  }
+  
+  /* Modal styles */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 backdrop-blur flex items-center justify-center p-4;
+    z-index: var(--z-modal);
+  }
+  
+  /* Lighter overlay in dark mode for better modal contrast */
+  .dark .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: none; /* Disable blur in dark mode */
+    -webkit-backdrop-filter: none;
+  }
+  
+  .modal-content {
+    @apply bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6;
+    animation: modalSlideIn var(--transition-normal) ease-out;
+    border: 1px solid transparent;
+  }
+  
+  /* Use dark background with light text in dark mode for modal visibility */
+  .dark .modal-content {
+    background-color: rgb(31 41 55) !important; /* gray-800 - dark background */
+    color: rgb(243 244 246) !important; /* gray-100 - light text */
+    border: 2px solid rgb(75 85 99); /* gray-600 - medium gray border */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(75, 85, 99, 0.5);
+  }
+  
+  /* Override label colors for dark background in dark mode */
+  .dark .modal-content label {
+    color: rgb(243 244 246) !important; /* gray-100 - light text for labels */
+  }
+  
+  /* Override input colors for dark background in dark mode */
+  .dark .modal-content input,
+  .dark .modal-content textarea,
+  .dark .modal-content select {
+    background-color: rgb(55 65 81) !important; /* gray-700 - darker background for inputs */
+    color: rgb(243 244 246) !important; /* gray-100 - light text */
+    border-color: rgb(75 85 99) !important; /* gray-600 - medium gray border */
+  }
+  
+  /* Notification styles */
+  .notification {
+    @apply fixed top-4 right-4 z-[var(--z-notification)] p-4 rounded-lg border shadow-lg;
+    max-width: 800px !important;
+    min-width: 400px !important;
+    width: auto !important;
+    animation: notificationSlideIn var(--transition-normal) ease-out;
+  }
+  
+  .notification-success {
+    @apply notification bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200;
+  }
+  
+  .notification-error {
+    @apply notification bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200;
+  }
+  
+  .notification-warning {
+    @apply notification bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200;
+  }
+  
+  .notification-info {
+    @apply notification bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes notificationSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes loading {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateY(-5px) translateX(2px);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(0px) translateX(5px);
+    opacity: 0.3;
+  }
+  75% {
+    transform: translateY(3px) translateX(-2px);
+    opacity: 0.4;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Dynamic Marker Legend Colors - Mapbox Compatible */
+.marker-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.marker-legend-dot.domain {
+  background-color: #7C3AED !important;
+  border-color: #ffffff !important;
+}
+
+.marker-legend-dot.plot {
+  background-color: #2563EB !important;
+  border-color: #ffffff !important;
+}
+
+.marker-legend-dot.plant {
+  background-color: #059669 !important;
+  border-color: #ffffff !important;
+}
+
+.marker-legend-dot.boundary {
+  background-color: #9333EA !important;
+  border-color: #ffffff !important;
+}
+
+/* Mapbox marker specific overrides */
+.mapboxgl-marker .marker-circle {
+  background-color: var(--marker-color) !important;
+}
+
+.mapboxgl-marker[data-marker-type="domain"] .marker-circle,
+.mapbox-marker-domain {
+  background-color: #7C3AED !important;
+}
+
+.mapboxgl-marker[data-marker-type="plot"] .marker-circle,
+.mapbox-marker-plot {
+  background-color: #2563EB !important;
+}
+
+.mapboxgl-marker[data-marker-type="plant"] .marker-circle,
+.mapbox-marker-plant {
+  background-color: #059669 !important;
+}
+
+/* Additional marker circle overrides */
+.marker-circle.domain,
+.marker-circle[data-marker-type="domain"] {
+  background-color: #7C3AED !important;
+}
+
+.marker-circle.plot,
+.marker-circle[data-marker-type="plot"] {
+  background-color: #2563EB !important;
+}
+
+.marker-circle.plant,
+.marker-circle[data-marker-type="plant"] {
+  background-color: #059669 !important;
+}
+
+/* Marker label styling - override Tailwind classes */
+.marker-label {
+  background-color: var(--marker-color, #666) !important;
+  color: white !important;
+  opacity: 0.9 !important;
+}
+
+.marker-label.domain {
+  background-color: #7C3AED !important;
+}
+
+.marker-label.plot {
+  background-color: #2563EB !important;
+}
+
+.marker-label.plant {
+  background-color: #059669 !important;
+}
+
+/* Override any conflicting Tailwind classes */
+.marker-label.bg-black,
+.marker-label.text-white {
+  background-color: var(--marker-color, #666) !important;
+  color: white !important;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Improve touch targets */
+  .btn {
+    min-height: 44px; /* iOS recommended touch target size */
+  }
+  
+  /* Better spacing for mobile */
+  .card {
+    padding: 1rem;
+  }
+  
+  /* Improve modal spacing on mobile */
+  .modal-content {
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+  }
+  
+  /* Better form field spacing */
+  .input-field {
+    min-height: 44px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  /* Improve dropdown spacing */
+  .searchable-dropdown {
+    min-height: 44px;
+  }
+  
+  /* Better grid layouts for mobile */
+  .grid-cols-1 {
+    gap: 1rem;
+  }
+  
+  /* Improve button groups */
+  .flex-wrap {
+    gap: 0.5rem;
+  }
+  
+  /* Better text sizing */
+  .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  /* Improve navigation */
+  .nav-link {
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+}
+
+/* Autofill styles for dark mode */
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover,
+.input-field:-webkit-autofill:focus,
+.input-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgb(229, 227, 227) inset !important;
+  -webkit-text-fill-color: rgb(33, 33, 33) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.dark .input-field:-webkit-autofill,
+.dark .input-field:-webkit-autofill:hover,
+.dark .input-field:-webkit-autofill:focus,
+.dark .input-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgb(49, 49, 56) inset !important;
+  -webkit-text-fill-color: rgb(229 231 235) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Disabled field styles */
+.input-field:disabled,
+.input-field.disabled {
+  background-color: rgb(243 244 246) !important;
+  color: rgb(107 114 128) !important;
+  cursor: not-allowed;
+}
+
+.dark .input-field:disabled,
+.dark .input-field.disabled {
+  background-color: rgb(55 65 81) !important;
+  color: rgb(156 163 175) !important;
+  cursor: not-allowed;
+}
+
+/* Map-specific styles */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.leaflet-popup-content {
+  margin: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  background: #1f2937;
+  color: #f9fafb;
+}
+
+.dark .leaflet-popup-tip {
+  background: #1f2937;
+}
+
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+.custom-marker div {
+  transition: transform 0.2s ease;
+}
+
+.custom-marker:hover div {
+  transform: scale(1.1);
+}
+
+/* Ensure map controls are visible in dark mode */
+.dark .leaflet-control-zoom a {
+  background: #374151;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+
+.dark .leaflet-control-zoom a:hover {
+  background: #4b5563;
+}
+
+.dark .leaflet-control-attribution {
+  background: rgba(31, 41, 55, 0.8);
+  color: #f9fafb;
+}
+
+/* Mapbox popup styles */
+.mapbox-popup .mapboxgl-popup-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  min-width: 280px;
+  max-width: 320px;
+  width: auto;
+  border: 1px solid #e5e7eb;
+  overflow: visible;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.dark .mapbox-popup .mapboxgl-popup-content {
+  background: #1f2937;
+  color: #d1d5db;
+  border: 1px solid #374151;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 8px 16px rgba(0, 0, 0, 0.2);
+  overflow: visible;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  min-width: 280px;
+  max-width: 320px;
+  width: auto;
+}
+
+.mapbox-popup .mapboxgl-popup-tip {
+  border-top-color: white;
+  margin-top: 5px;
+}
+
+.dark .mapbox-popup .mapboxgl-popup-tip {
+  border-top-color: #1f2937;
+  margin-top: 5px;
+}
+
+.mapbox-popup .mapboxgl-popup-close-button {
+  color: #6b7280;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.dark .mapbox-popup .mapboxgl-popup-close-button {
+  color: #9ca3af;
+  background: rgba(31, 41, 55, 0.8);
+}
+
+.mapbox-popup .mapboxgl-popup-close-button:hover {
+  color: #374151;
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.1);
+}
+
+.dark .mapbox-popup .mapboxgl-popup-close-button:hover {
+  color: #d1d5db;
+  background: rgba(55, 65, 81, 0.9);
+}
+
+/* Popup content styling */
+.popup-content-wrapper {
+  padding-top: 20px;
+  padding-bottom: 10px;
+  position: relative;
+  min-width: 280px;
+}
+
+.popup-content {
+  font-family: inherit;
+  position: relative;
+  z-index: 1000;
+  min-width: 280px;
+}
+
+/* Ensure popup container has proper spacing */
+.mapboxgl-popup {
+  z-index: 1000;
+}
+
+.mapboxgl-popup-content {
+  position: relative;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 25px 16px 12px 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 16px 16px 0 0;
+  margin-top: 5px;
+}
+
+.dark .popup-header {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-bottom: 1px solid #475569;
+  border-radius: 16px 16px 0 0;
+  margin-top: 5px;
+}
+
+.popup-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.popup-title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.popup-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 2px 0;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .popup-title {
+  color: #f1f5f9;
+}
+
+.popup-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dark .popup-subtitle {
+  color: #94a3b8;
+}
+
+.popup-body {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.popup-section {
+  margin-bottom: 16px;
+}
+
+.popup-section:last-child {
+  margin-bottom: 0;
+}
+
+.popup-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+.popup-item:last-child {
+  margin-bottom: 0;
+}
+
+.popup-item-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.popup-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.popup-item-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.dark .popup-item-label {
+  color: #94a3b8;
+}
+
+.popup-item-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.dark .popup-item-value {
+  color: #e2e8f0;
+}
+
+/* Status indicators */
+.popup-item-value.text-green-600 {
+  color: #059669;
+}
+
+.dark .popup-item-value.text-green-600 {
+  color: #10b981;
+}
+
+.popup-item-value.text-yellow-600 {
+  color: #d97706;
+}
+
+.dark .popup-item-value.text-yellow-600 {
+  color: #f59e0b;
+}
+
+.popup-item-value.text-red-600 {
+  color: #dc2626;
+}
+
+.dark .popup-item-value.text-red-600 {
+  color: #ef4444;
+}
+
+/* Mobile popup adjustments */
+@media (max-width: 640px) {
+  .mapbox-popup .mapboxgl-popup-content {
+    min-width: 260px;
+    max-width: 300px;
+    width: auto;
+    font-size: 14px;
+    margin: 10px;
+  }
+  
+  .mapbox-popup .mapboxgl-popup-close-button {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+  
+  .popup-content-wrapper {
+    padding-top: 15px;
+    padding-bottom: 8px;
+    min-width: 260px;
+  }
+  
+  .popup-header {
+    padding: 18px 14px 10px 14px;
+  }
+  
+  .popup-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  
+  .popup-title {
+    font-size: 15px;
+  }
+  
+  .popup-body {
+    padding: 14px;
+    max-height: 350px;
+  }
+  
+  .popup-item {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .popup-item-icon {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .popup-item-label {
+    font-size: 10px;
+  }
+  
+  .popup-item-value {
+    font-size: 12px;
+  }
+  
+  .popup-content {
+    min-width: 260px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .mapbox-popup .mapboxgl-popup-content {
+    min-width: 240px;
+    max-width: 280px;
+    width: auto;
+    margin: 8px;
+  }
+  
+  .popup-content-wrapper {
+    padding-top: 12px;
+    padding-bottom: 6px;
+    min-width: 240px;
+  }
+  
+  .popup-header {
+    padding: 16px 12px 8px 12px;
+  }
+  
+  .popup-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .popup-title {
+    font-size: 14px;
+  }
+  
+  .popup-body {
+    padding: 12px;
+    max-height: 300px;
+  }
+  
+  .popup-item {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .popup-item-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .popup-item-label {
+    font-size: 9px;
+  }
+  
+  .popup-item-value {
+    font-size: 11px;
+  }
+  
+  .popup-content {
+    min-width: 240px;
+  }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Improve touch targets */
+  .btn {
+    min-height: 44px; /* iOS recommended touch target size */
+  }
+  
+  /* Better spacing for mobile */
+  .card {
+    padding: 1rem;
+  }
+  
+  /* Improve modal spacing on mobile */
+  .modal-content {
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+  }
+  
+  /* Better form field spacing */
+  .input-field {
+    min-height: 44px;
+  }
+  
+  /* Improve button spacing */
+  .btn-group {
+    gap: 0.5rem;
+  }
+  
+  /* Better table responsiveness */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Improve navigation spacing */
+  .nav-item {
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Better filter layout */
+  .filter-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  /* Improve action button layout */
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Better modal sizing */
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+  }
+  
+  /* Reduce background emoji visibility on mobile */
+  .bg-emoji {
+    opacity: 0.1;
+    font-size: 0.75rem;
+  }
+  
+  /* Hide decorative emojis on very small screens */
+  @media (max-width: 480px) {
+    .bg-emoji {
+      display: none;
+    }
+  }
+  
+  /* Fix dialog positioning on mobile */
+  .fixed {
+    position: fixed !important;
+  }
+  
+  /* Ensure dialog appears above all content */
+  .z-\[9999\] {
+    z-index: var(--z-modal) !important; /* Use modal z-index instead of hardcoded 9999 */
+  }
+  
+  /* Improve dialog touch targets on mobile */
+  .dialog-close-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

@@ -1,0 +1,6 @@
+Name,Type,Variety,Category,Domain,Plot,Planted Date,Planted By,Last Watered,Next Watering Date,Health,Growth Stage,Expected Harvest Date,Actual Harvest Date,Harvest Yield (kg),Latitude,Longitude,Image,Is Active
+Tomato Plant,Tomato,Cherry,vegetable,Vegetable Garden,Plot A,2024-01-15,John Smith,2024-01-20,2024-01-25,excellent,seedling,2024-04-15,,0,12.9716,77.5946,🍅,true
+Basil Plant,Basil,Sweet,herb,Herb Garden,Plot B,2024-01-20,Jane Doe,2024-01-22,2024-01-27,good,seedling,2024-03-20,,0,12.9716,77.5946,🌿,true
+Lettuce Plant,Lettuce,Romaine,vegetable,Vegetable Garden,Plot C,2024-01-25,Bob Wilson,2024-01-27,2024-02-01,fair,seedling,2024-03-25,,0,12.9716,77.5946,🥬,true
+Carrot Plant,Carrot,Orange,vegetable,Root Garden,Plot D,2024-02-01,Alice Brown,2024-02-03,2024-02-08,poor,seedling,2024-05-01,,0,12.9716,77.5946,🥕,true
+Mint Plant,Mint,Peppermint,herb,Herb Garden,Plot E,2024-02-05,Charlie Green,2024-02-07,2024-02-12,deceased,mature,2024-04-05,2024-04-05,2.5,12.9716,77.5946,🌿,false

@@ -1,0 +1,68 @@
+export const plotsData = [
+  {
+    id: 1,
+    plotNumber: 'P001',
+    name: 'Plot 1 - North Field',
+    domainId: 1,
+    organizationId: 1,
+    size: '100 sq meters',
+    soilType: 'Loamy',
+    irrigationType: 'Drip',
+    status: 'active',
+    createdAt: '2024-01-01',
+    createdBy: 1,
+    isActive: true,
+  },
+  {
+    id: 2,
+    plotNumber: 'P002',
+    name: 'Plot 2 - North Field',
+    domainId: 1,
+    organizationId: 1,
+    size: '100 sq meters',
+    soilType: 'Clay',
+    irrigationType: 'Sprinkler',
+    status: 'active',
+    createdAt: '2024-01-01',
+    createdBy: 1,
+    isActive: true,
+  },
+  {
+    id: 3,
+    plotNumber: 'P051',
+    name: 'Plot 51 - South Field',
+    domainId: 2,
+    organizationId: 1,
+    size: '150 sq meters',
+    soilType: 'Sandy',
+    irrigationType: 'Drip',
+    status: 'active',
+    createdAt: '2024-01-15',
+    createdBy: 2,
+    isActive: true,
+  },
+  {
+    id: 4,
+    plotNumber: 'GH001',
+    name: 'Greenhouse Plot 1',
+    domainId: 3,
+    organizationId: 1,
+    size: '50 sq meters',
+    soilType: 'Hydroponic',
+    irrigationType: 'Automated',
+    status: 'active',
+    createdAt: '2024-02-01',
+    createdBy: 2,
+    isActive: true,
+  },
+];
+
+export const createPlot = (plotData) => {
+  const newPlot = {
+    id: Date.now(),
+    ...plotData,
+    createdAt: new Date().toISOString().split('T')[0],
+    isActive: true,
+  };
+  return newPlot;
+}; 
