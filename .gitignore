@@ -27,6 +27,18 @@ server.log
 FINAL_TEST_RESULTS.md
 TEST_RESULTS_SUMMARY.md
 
+# Database seed and data manipulation files
+seed*.js
+add*.js
+create*.js
+fix*.js
+update*.js
+migrate*.js
+move*.js
+check*.js
+investigate*.js
+verify*.js
+
 # Runtime data
 pids
 *.pid
