@@ -19,6 +19,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+server.log
+
+# Test reports and results
+*TEST*RESULT*.md
+*TEST*SUMMARY*.md
+FINAL_TEST_RESULTS.md
+TEST_RESULTS_SUMMARY.md
 
 # Runtime data
 pids
