@@ -78,6 +78,24 @@ NODE_ENV=development
 - `npm start` - Start production server
 - `npm run dev` - Start development server with nodemon
 - `npm test` - Run tests (to be implemented)
+- `npm run seed:farm-layout` - Upsert the SF3 domain and plots derived from the farm overlay
+
+### Seeding the SF3 layout
+
+The frontend overlay data now has a matching MongoDB representation. To sync it into the database:
+
+1. Ensure `MONGODB_URI` points to the target cluster and that the `Sanctity Ferme` organization plus an admin user already exist (run `setupDatabase.js` if needed).
+2. (Optional) Override defaults with:
+   ```
+   export SEED_ORG_NAME="Sanctity Ferme"
+   export SEED_CREATED_BY_EMAIL="admin@sanctityferme.com"
+   ```
+3. Run the seeder:
+   ```
+   npm run seed:farm-layout
+   ```
+
+The script upserts the `SF3` domain coordinates and creates/updates plots `1-109`, `200-260`, and `300-344`, so MapView data comes from the DB instead of hardcoded fallbacks.
 
 ## Database Schema
 

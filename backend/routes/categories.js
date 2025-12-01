@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const { auth } = require('../middleware/auth');
 
@@ -65,6 +66,25 @@ router.get('/', auth, async (req, res) => {
       ];
     }
 
+    // Extract user's organizationId - handle both populated object and ObjectId
+    const getUserOrgId = () => {
+      if (!req.user.organizationId) return null;
+      let orgId = null;
+      // If it's a populated object, get the _id
+      if (typeof req.user.organizationId === 'object' && req.user.organizationId._id) {
+        orgId = req.user.organizationId._id;
+      } else {
+        // If it's already an ObjectId, use it
+        orgId = req.user.organizationId;
+      }
+      // Ensure it's a proper ObjectId
+      if (orgId && !mongoose.Types.ObjectId.isValid(orgId)) {
+        console.warn('Invalid organizationId format:', orgId);
+        return null;
+      }
+      return orgId ? new mongoose.Types.ObjectId(orgId) : null;
+    };
+
     // Apply role-based filtering for categories
     if (req.user.role === 'super_admin') {
       // Super admin can see all categories (only filter if specifically requested)
@@ -74,8 +94,15 @@ router.get('/', auth, async (req, res) => {
       // If no organizationId specified, don't filter by organization (show all)
     } else {
       // Other users can only see categories from their organization
-      const userOrgId = req.user.organizationId?._id || req.user.organizationId;
-      filter.organizationId = userOrgId;
+      const userOrgId = getUserOrgId();
+      // Only filter by organizationId if it's actually set
+      if (userOrgId) {
+        filter.organizationId = userOrgId;
+      } else {
+        // If user doesn't have an organizationId, they might not see any categories
+        // This is expected behavior - users should be assigned to an organization
+        console.warn(`User ${req.user._id} (role: ${req.user.role}) has no organizationId assigned`);
+      }
     }
     
     const categories = await Category.find(filter)
@@ -115,6 +142,32 @@ router.get('/all', auth, async (req, res) => {
     // Build filter
     const filter = { isActive: true };
 
+    // Extract user's organizationId - handle both populated object and ObjectId
+    const getUserOrgId = () => {
+      if (!req.user.organizationId) return null;
+      let orgId = null;
+      // If it's a populated object, get the _id
+      if (typeof req.user.organizationId === 'object' && req.user.organizationId._id) {
+        orgId = req.user.organizationId._id;
+      } else {
+        // If it's already an ObjectId, use it
+        orgId = req.user.organizationId;
+      }
+      // Ensure it's a proper ObjectId
+      if (orgId && !mongoose.Types.ObjectId.isValid(orgId)) {
+        console.warn('Invalid organizationId format:', orgId);
+        return null;
+      }
+      return orgId ? new mongoose.Types.ObjectId(orgId) : null;
+    };
+
+    console.log('Categories /all - User info:', {
+      userId: req.user._id,
+      role: req.user.role,
+      organizationId: req.user.organizationId,
+      extractedOrgId: getUserOrgId()
+    });
+
     // Apply role-based filtering for categories
     if (req.user.role === 'super_admin') {
       // Super admin can see all categories (only filter if specifically requested)
@@ -124,14 +177,46 @@ router.get('/all', auth, async (req, res) => {
       // If no organizationId specified, don't filter by organization (show all)
     } else {
       // Other users can only see categories from their organization
-      const userOrgId = req.user.organizationId?._id || req.user.organizationId;
-      filter.organizationId = userOrgId;
+      const userOrgId = getUserOrgId();
+      // Only filter by organizationId if it's actually set
+      if (userOrgId) {
+        filter.organizationId = userOrgId;
+        console.log('Filtering categories by organizationId:', userOrgId);
+      } else {
+        // If user doesn't have an organizationId, they might not see any categories
+        // This is expected behavior - users should be assigned to an organization
+        console.warn(`User ${req.user._id} (role: ${req.user.role}) has no organizationId assigned`);
+      }
     }
+    
+    console.log('Categories filter:', JSON.stringify(filter, null, 2));
+    
+    // First, let's check how many categories exist total
+    const totalCategories = await Category.countDocuments({ isActive: true });
+    console.log(`Total active categories in database: ${totalCategories}`);
     
     const categories = await Category.find(filter)
       .populate('createdBy', 'firstName lastName')
       .populate('organizationId', 'name')
       .sort({ displayName: 1 });
+
+    console.log(`Found ${categories.length} categories for user ${req.user._id} (role: ${req.user.role})`);
+    
+    // Log first few categories for debugging
+    if (categories.length > 0) {
+      console.log('Sample categories:', categories.slice(0, 3).map(cat => ({
+        name: cat.name,
+        displayName: cat.displayName,
+        organizationId: cat.organizationId
+      })));
+    } else {
+      // If no categories found, check if there are any categories with null organizationId
+      const categoriesWithNullOrg = await Category.countDocuments({ 
+        isActive: true, 
+        organizationId: null 
+      });
+      console.log(`Categories with null organizationId: ${categoriesWithNullOrg}`);
+    }
 
     res.json({
       success: true,

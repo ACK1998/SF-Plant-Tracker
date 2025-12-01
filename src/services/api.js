@@ -410,8 +410,8 @@ class ApiService {
   // Plots
   async getPlots(params = {}) {
     try {
-      // Add default pagination if not provided
-      const defaultParams = { page: 1, limit: 10, ...params };
+      // Fetch enough plots for full-map rendering unless caller overrides
+      const defaultParams = { page: 1, limit: 500, ...params };
       const queryString = new URLSearchParams(defaultParams).toString();
       const endpoint = `/plots?${queryString}`;
       return await this.request(endpoint);
@@ -790,16 +790,41 @@ class ApiService {
 
   async getAllCategories(params = {}) {
     try {
+      console.log('API Service: getAllCategories called with params:', params);
       // Filter out undefined values
       const cleanParams = Object.fromEntries(
         Object.entries(params).filter(([_, value]) => value !== undefined && value !== null)
       );
       const queryString = new URLSearchParams(cleanParams).toString();
-      const response = await this.request(`/categories/all?${queryString}`);
+      const endpoint = `/categories/all${queryString ? `?${queryString}` : ''}`;
+      console.log('API Service: Making request to:', endpoint);
+      const response = await this.request(endpoint);
+      console.log('API Service: getAllCategories response:', {
+        success: response.success,
+        dataLength: response.data ? response.data.length : 0,
+        data: response.data
+      });
+      
+      // Ensure we always return a response object with success and data
+      if (!response) {
+        console.error('API Service: getAllCategories returned null/undefined response');
+        return { success: false, data: [], message: 'No response from server' };
+      }
+      
       return response;
     } catch (error) {
-      console.error('Failed to get all categories:', error);
-      throw error;
+      console.error('API Service: Failed to get all categories:', error);
+      console.error('API Service: Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      // Return a proper error response instead of throwing
+      return {
+        success: false,
+        data: [],
+        message: error.message || 'Failed to fetch categories',
+        error: error
+      };
     }
   }
 

@@ -1,15 +1,38 @@
 const mongoose = require('mongoose');
+const logger = require('./logger');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const options = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      bufferCommands: false, // Disable mongoose buffering
+      retryWrites: true,
+      w: 'majority'
+    };
+
+    const conn = await mongoose.connect(process.env.MONGODB_URI, options);
+
+    logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      logger.error('❌ MongoDB connection error:', err);
     });
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('⚠️ MongoDB disconnected');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      logger.info('✅ MongoDB reconnected');
+    });
+
   } catch (error) {
-    console.error(`❌ MongoDB connection error: ${error.message}`);
+    logger.error(`❌ MongoDB connection error: ${error.message}`);
     process.exit(1);
   }
 };

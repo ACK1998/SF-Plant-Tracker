@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Search, X } from 'lucide-react';
 
@@ -16,76 +16,133 @@ const SearchableDropdown = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0, ready: false });
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
+  const portalRef = useRef(null);
 
-  // Sort options alphabetically by label
-  const sortedOptions = [...options].sort((a, b) => 
-    (a.label || a.name || a).localeCompare(b.label || b.name || b)
-  );
+  // Memoize options processing to prevent unnecessary recalculations
+  const safeOptions = useMemo(() => {
+    return Array.isArray(options) ? options : [];
+  }, [options]);
+  
+  // Sort options alphabetically by label, but keep the first option (usually "Select...") at the top
+  const sortedOptions = useMemo(() => {
+    if (safeOptions.length === 0) return [];
+    return [
+      safeOptions[0], // Keep first option (usually placeholder) at top
+      ...safeOptions.slice(1).sort((a, b) => 
+        (a.label || a.name || String(a)).localeCompare(b.label || b.name || String(b))
+      )
+    ];
+  }, [safeOptions]);
 
-  // Filter options based on search term
-  const filteredOptions = sortedOptions.filter(option => {
-    const label = option.label || option.name || option;
-    return label.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Memoize filtered options
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return sortedOptions;
+    return sortedOptions.filter(option => {
+      const label = option.label || option.name || String(option);
+      return label.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [sortedOptions, searchTerm]);
 
-  // Get display value
-  const getDisplayValue = () => {
+  // Memoize display value
+  const displayValue = useMemo(() => {
     if (!value) return '';
-    const selectedOption = sortedOptions.find(option => 
-      (option.value || option._id || option) === value
-    );
-    return selectedOption ? (selectedOption.label || selectedOption.name || selectedOption) : '';
-  };
+    const selectedOption = sortedOptions.find(option => {
+      const optionValue = option.value || option._id || String(option);
+      return String(optionValue) === String(value);
+    });
+    return selectedOption ? (selectedOption.label || selectedOption.name || String(selectedOption)) : '';
+  }, [sortedOptions, value]);
 
-  // Calculate dropdown position
-  const calculateDropdownPosition = () => {
-    if (buttonRef.current) {
+  // Calculate dropdown position with callback to prevent stale closures
+  const calculateDropdownPosition = useCallback(() => {
+    if (buttonRef.current && isOpen) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
+      // Use getBoundingClientRect which already accounts for scroll
+      // For fixed positioning, we use viewport coordinates
+      const newPosition = {
+        top: rect.bottom + 2, // Add small gap
+        left: rect.left,
+        width: Math.max(rect.width, 200), // Ensure minimum width
+        ready: true
+      };
+      setDropdownPosition(newPosition);
     }
-  };
+  }, [isOpen]);
 
   // Handle option selection
-  const handleOptionSelect = (option) => {
-    console.log('Option selected:', option);
-    const optionValue = option.value || option._id || option;
-    console.log('Option value:', optionValue);
+  const handleOptionSelect = useCallback((option) => {
+    const optionValue = option.value || option._id || String(option);
     onChange({ target: { name: name, value: optionValue } });
     setIsOpen(false);
     setSearchTerm('');
-  };
+  }, [name, onChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event) => {
-      console.log('Click outside detected, dropdown ref:', dropdownRef.current, 'target:', event.target);
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        console.log('Closing dropdown due to outside click');
+      const target = event.target;
+      // Check if click is outside both the button and the portal
+      if (
+        buttonRef.current && 
+        !buttonRef.current.contains(target) &&
+        portalRef.current &&
+        !portalRef.current.contains(target)
+      ) {
         setIsOpen(false);
         setSearchTerm('');
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Use a small delay to prevent immediate closure
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 10);
 
-  // Clear search when dropdown closes and calculate position when opening
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Calculate position when opening and reset when closing
   useEffect(() => {
-    console.log('Dropdown state changed, isOpen:', isOpen);
     if (isOpen) {
+      // Calculate position immediately
       calculateDropdownPosition();
+      
+      // Calculate again after a short delay to ensure accuracy
+      const timeoutId1 = setTimeout(() => {
+        calculateDropdownPosition();
+      }, 10);
+      
+      // And once more after DOM settles
+      const timeoutId2 = setTimeout(() => {
+        calculateDropdownPosition();
+      }, 50);
+      
+      // Also recalculate on scroll/resize
+      const handleScroll = () => calculateDropdownPosition();
+      const handleResize = () => calculateDropdownPosition();
+      
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+        clearTimeout(timeoutId1);
+        clearTimeout(timeoutId2);
+        window.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener('resize', handleResize);
+      };
     } else {
       setSearchTerm('');
+      setDropdownPosition({ top: 0, left: 0, width: 0, ready: false });
     }
-  }, [isOpen]);
+  }, [isOpen, calculateDropdownPosition]);
 
   return (
     <div className={`relative dropdown-container ${className}`} ref={dropdownRef} style={{ zIndex: isOpen ? 100 : 'auto' }} data-dropdown="true">
@@ -95,7 +152,6 @@ const SearchableDropdown = ({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('Dropdown button clicked, disabled:', disabled, 'isOpen:', isOpen);
           if (!disabled) {
             setIsOpen(!isOpen);
           }
@@ -106,8 +162,8 @@ const SearchableDropdown = ({
         }`}
         style={{ pointerEvents: 'auto' }}
       >
-        <span className={`${getDisplayValue() ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
-          {getDisplayValue() || placeholder}
+        <span className={`${displayValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+          {displayValue || placeholder}
         </span>
         <ChevronDown 
           className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
@@ -115,19 +171,22 @@ const SearchableDropdown = ({
       </button>
 
       {isOpen && createPortal(
-        <div 
-          className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-80" 
-          style={{ 
-            zIndex: 99999, 
-            position: 'fixed', 
-            top: dropdownPosition.top, 
-            left: dropdownPosition.left, 
-            width: dropdownPosition.width,
-            minWidth: '200px'
-          }} 
-          data-dropdown="true"
-          ref={dropdownRef}
-        >
+          <div 
+            ref={portalRef}
+            className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-80" 
+            style={{ 
+              zIndex: 10000, 
+              position: 'fixed', 
+              top: dropdownPosition.ready ? `${dropdownPosition.top}px` : '-9999px', 
+              left: dropdownPosition.ready ? `${dropdownPosition.left}px` : '-9999px', 
+              width: dropdownPosition.width > 0 ? `${dropdownPosition.width}px` : '200px',
+              minWidth: '200px',
+              opacity: dropdownPosition.ready ? 1 : 0,
+              pointerEvents: dropdownPosition.ready ? 'auto' : 'none',
+              transition: 'opacity 0.1s ease-in-out'
+            }} 
+            data-dropdown="true"
+          >
           {/* Search Input */}
           <div className="p-2 border-b border-gray-200 dark:border-gray-700">
             <div className="relative">
@@ -161,22 +220,21 @@ const SearchableDropdown = ({
           >
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                No options found
+                {sortedOptions.length === 0 ? 'No options available' : 'No options found'}
               </div>
             ) : (
               filteredOptions.map((option, index) => {
-                const optionValue = option.value || option._id || option;
-                const optionLabel = option.label || option.name || option;
-                const isSelected = optionValue === value;
+                const optionValue = option.value || option._id || String(option);
+                const optionLabel = option.label || option.name || String(option);
+                const isSelected = String(optionValue) === String(value);
 
                 return (
                   <button
-                    key={`${optionValue || optionLabel || index}-${index}`}
+                    key={`${name}-${optionValue || optionLabel || index}-${index}`}
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('Option button clicked:', option);
                       handleOptionSelect(option);
                     }}
                     className={`w-full px-3 py-2.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700 transition-colors duration-150 cursor-pointer ${

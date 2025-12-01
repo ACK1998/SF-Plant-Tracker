@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, MapPin, User, Heart, Leaf, ExternalLink, TreePalm } from 'lucide-react';
 import { findPlantEmoji } from '../../utils/emojiMapper';
 import { DarkModeProvider } from '../../contexts/DarkModeContext';
@@ -8,11 +8,7 @@ function PublicPlantView({ plantId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchPlant();
-  }, [plantId]);
-
-  const fetchPlant = async () => {
+  const fetchPlant = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/plants/public/${plantId}`);
@@ -29,7 +25,11 @@ function PublicPlantView({ plantId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [plantId]);
+
+  useEffect(() => {
+    fetchPlant();
+  }, [fetchPlant]);
 
 
   const getHealthColor = (health) => {

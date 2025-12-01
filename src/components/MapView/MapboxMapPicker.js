@@ -78,7 +78,7 @@ function MapboxMapPicker({
         // Add click event listener
         map.current.on('click', (e) => {
           const { lng, lat } = e.lngLat;
-          console.log('Map clicked at:', lat, lng);
+          // Map clicked
           handleLocationSelect(lat, lng);
         });
 
@@ -88,7 +88,6 @@ function MapboxMapPicker({
         }
 
         // Create boundaries after map loads
-        console.log('MapboxMapPicker: Map loaded, calling createBoundaries');
         createBoundaries();
       });
 
@@ -108,7 +107,7 @@ function MapboxMapPicker({
           if (map.current.getLayer('validation-zone-fill')) map.current.removeLayer('validation-zone-fill');
           if (map.current.getSource('validation-zone')) map.current.removeSource('validation-zone');
         } catch (error) {
-          console.log('MapboxMapPicker: Error cleaning up boundaries:', error);
+          // Error cleaning up boundaries (non-critical)
         }
         
         map.current.remove();
@@ -126,15 +125,11 @@ function MapboxMapPicker({
 
   // Update boundaries when boundary data changes
   useEffect(() => {
-    console.log('MapboxMapPicker: Boundary data changed, useEffect triggered');
-    console.log('MapboxMapPicker: domainBoundaries changed:', domainBoundaries);
-    console.log('MapboxMapPicker: plotBoundaries changed:', plotBoundaries);
-    console.log('MapboxMapPicker: validationCenter changed:', validationCenter);
-    console.log('MapboxMapPicker: validationType changed:', validationType);
+    // Boundary data changed - logs removed for cleaner console
     
     // Only proceed if we have a map and it's ready
     if (!map.current || !map.current.isStyleLoaded()) {
-      console.log('MapboxMapPicker: Map not ready or style not loaded');
+      // Map not ready or style not loaded
       return;
     }
     
@@ -145,7 +140,7 @@ function MapboxMapPicker({
     
     // Only proceed if we have meaningful data
     if (!hasDomainData && !hasPlotData && !hasValidationData) {
-      console.log('MapboxMapPicker: No meaningful boundary data, skipping');
+      // No meaningful boundary data, skipping
       return;
     }
     
@@ -158,16 +153,16 @@ function MapboxMapPicker({
     });
     
     if (lastBoundaryData === currentBoundaryData) {
-      console.log('MapboxMapPicker: Boundary data unchanged, skipping');
+      // Boundary data unchanged, skipping
       return;
     }
     
-    console.log('MapboxMapPicker: Boundary data changed, proceeding');
+    // Boundary data changed, proceeding
     setLastBoundaryData(currentBoundaryData);
     
     // Add a small delay to prevent rapid successive calls
     const timeoutId = setTimeout(() => {
-      console.log('MapboxMapPicker: Map style loaded, calling createBoundaries');
+      // Map style loaded, calling createBoundaries
       createBoundaries();
     }, 100);
     
@@ -180,7 +175,7 @@ function MapboxMapPicker({
   }, [domainBoundaries, plotBoundaries, validationCenter, validationType]);
 
   const addMarker = (lat, lng) => {
-    console.log('Adding marker at:', lat, lng);
+    // Adding marker
     
     // Remove existing marker
     if (marker.current) {
@@ -217,22 +212,18 @@ function MapboxMapPicker({
         duration: MAPBOX_CONFIG.flyToDuration
       });
       
-      console.log('Marker added successfully');
+      // Marker added successfully
     } else {
-      console.log('Map not ready, cannot add marker');
+      // Map not ready, cannot add marker
     }
   };
 
   // Create boundary polygons and validation zones
   const createBoundaries = () => {
-    console.log('MapboxMapPicker: createBoundaries called');
-    console.log('MapboxMapPicker: domainBoundaries:', domainBoundaries);
-    console.log('MapboxMapPicker: plotBoundaries:', plotBoundaries);
-    console.log('MapboxMapPicker: validationCenter:', validationCenter);
-    console.log('MapboxMapPicker: validationType:', validationType);
+    // createBoundaries called - logs removed for cleaner console
     
     if (!map.current || !showBoundaries || isCreatingBoundaries) {
-      console.log('MapboxMapPicker: Skipping createBoundaries - map not ready, boundaries disabled, or already creating');
+      // Skipping createBoundaries - map not ready, boundaries disabled, or already creating
       return;
     }
     
@@ -270,7 +261,7 @@ function MapboxMapPicker({
         map.current.removeSource('validation-zone');
       }
     } catch (error) {
-      console.log('MapboxMapPicker: Error removing existing boundaries:', error);
+      // Error removing existing boundaries (non-critical)
     }
 
     // Add domain boundary if available
@@ -289,7 +280,7 @@ function MapboxMapPicker({
         }
       };
 
-      console.log('MapboxMapPicker: Adding domain boundary source and layers');
+      // Adding domain boundary source and layers
       try {
         map.current.addSource('domain-boundary', domainSource);
         map.current.addLayer({
@@ -314,7 +305,7 @@ function MapboxMapPicker({
         });
 
         setDomainPolygon('domain-boundary');
-        console.log('MapboxMapPicker: Domain boundary added successfully');
+        // Domain boundary added successfully
       } catch (error) {
         console.error('MapboxMapPicker: Error adding domain boundary:', error);
       }
@@ -336,7 +327,7 @@ function MapboxMapPicker({
         }
       };
 
-      console.log('MapboxMapPicker: Adding plot boundary source and layers');
+      // Adding plot boundary source and layers
       try {
         map.current.addSource('plot-boundary', plotSource);
         map.current.addLayer({
@@ -361,7 +352,7 @@ function MapboxMapPicker({
         });
 
         setPlotPolygon('plot-boundary');
-        console.log('MapboxMapPicker: Plot boundary added successfully');
+        // Plot boundary added successfully
       } catch (error) {
         console.error('MapboxMapPicker: Error adding plot boundary:', error);
       }
@@ -369,7 +360,7 @@ function MapboxMapPicker({
 
     // Add validation zone (plot boundary area where plants can be placed)
     if (validationCenter && validationType === 'plant') {
-      console.log('MapboxMapPicker: Plant validation - plants can be placed anywhere within the plot boundaries');
+      // Plant validation - plants can be placed anywhere within the plot boundaries
       // No need to show a separate validation zone since plants can be placed anywhere within the plot boundaries
       // The plot boundary itself (green area) shows where plants can be placed
     }
@@ -416,25 +407,23 @@ function MapboxMapPicker({
   };
 
   const handleLocationSelect = (lat, lng) => {
-    console.log('handleLocationSelect called with:', lat, lng);
     const validation = validateLocation(lat, lng);
-    console.log('Validation result:', validation);
     
     if (validation.isValid) {
-      console.log('Location is valid, updating state and calling onLocationChange');
+      // Location is valid, updating state and calling onLocationChange
       setPosition([lat, lng]);
       setInputLat(lat.toString());
       setInputLng(lng.toString());
       setValidationError('');
       
       if (onLocationChange) {
-        console.log('Calling onLocationChange with:', lat, lng, true);
+        // Calling onLocationChange
         onLocationChange(lat, lng, true);
       } else {
-        console.log('onLocationChange is not provided');
+        // onLocationChange is not provided
       }
     } else {
-      console.log('Location validation failed:', validation.errorMessage);
+      // Location validation failed
       setValidationError(validation.errorMessage);
       if (onValidationError) {
         onValidationError(validation.errorMessage);
