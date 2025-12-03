@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MapPin, Building, Droplets, Sun } from 'lucide-react';
+import { Plus, Search, MapPin, Building, Droplets, Sun, Navigation } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../contexts/ApiContext';
 import ConfirmationDialog from '../common/ConfirmationDialog';
@@ -517,6 +517,53 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
     longitude: ''
   });
 
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          latitude: latitude,
+          longitude: longitude
+        }));
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Location access denied. Please enable location permissions in your browser.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            setLocationError('Location request timed out. Please try again.');
+            break;
+          default:
+            setLocationError('An unknown error occurred while getting your location.');
+            break;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -707,18 +754,42 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
 
           {/* Location Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Location Coordinates
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Location Coordinates
+              </label>
+              <button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={isGettingLocation}
+                className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-plant-green-600 dark:text-plant-green-400 bg-plant-green-50 dark:bg-plant-green-900/20 rounded-md hover:bg-plant-green-100 dark:hover:bg-plant-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Navigation size={16} className={isGettingLocation ? 'animate-spin' : ''} />
+                <span>{isGettingLocation ? 'Getting Location...' : 'Use Current Location'}</span>
+              </button>
+            </div>
+            {locationError && (
+              <div className="mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-xs text-red-700 dark:text-red-400">{locationError}</p>
+              </div>
+            )}
             <MapPickerMapbox
-              latitude={formData.latitude}
-              longitude={formData.longitude}
+              latitude={formData.latitude !== '' && formData.latitude !== null && formData.latitude !== undefined 
+                ? (typeof formData.latitude === 'string' ? parseFloat(formData.latitude) : formData.latitude) 
+                : null}
+              longitude={formData.longitude !== '' && formData.longitude !== null && formData.longitude !== undefined 
+                ? (typeof formData.longitude === 'string' ? parseFloat(formData.longitude) : formData.longitude) 
+                : null}
               onLocationChange={(lat, lng, isValid) => {
                 setFormData(prev => ({
                   ...prev,
-                  latitude: lat,
-                  longitude: lng
+                  latitude: lat?.toString() || '',
+                  longitude: lng?.toString() || ''
                 }));
+                // Clear location error when location is manually set
+                if (locationError) {
+                  setLocationError('');
+                }
               }}
               validationType="plot"
               validationCenter={{ lat: 12.697541550243653, lng: 78.06162609693409 }} // Phase 1 center
@@ -764,6 +835,53 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
     latitude: plot.latitude || '',
     longitude: plot.longitude || ''
   });
+
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          latitude: latitude,
+          longitude: longitude
+        }));
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Location access denied. Please enable location permissions in your browser.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            setLocationError('Location request timed out. Please try again.');
+            break;
+          default:
+            setLocationError('An unknown error occurred while getting your location.');
+            break;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -990,18 +1108,42 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
 
           {/* Location Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Location Coordinates
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Location Coordinates
+              </label>
+              <button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={isGettingLocation}
+                className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-plant-green-600 dark:text-plant-green-400 bg-plant-green-50 dark:bg-plant-green-900/20 rounded-md hover:bg-plant-green-100 dark:hover:bg-plant-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Navigation size={16} className={isGettingLocation ? 'animate-spin' : ''} />
+                <span>{isGettingLocation ? 'Getting Location...' : 'Use Current Location'}</span>
+              </button>
+            </div>
+            {locationError && (
+              <div className="mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-xs text-red-700 dark:text-red-400">{locationError}</p>
+              </div>
+            )}
             <MapPickerMapbox
-              latitude={formData.latitude}
-              longitude={formData.longitude}
+              latitude={formData.latitude !== '' && formData.latitude !== null && formData.latitude !== undefined 
+                ? (typeof formData.latitude === 'string' ? parseFloat(formData.latitude) : formData.latitude) 
+                : null}
+              longitude={formData.longitude !== '' && formData.longitude !== null && formData.longitude !== undefined 
+                ? (typeof formData.longitude === 'string' ? parseFloat(formData.longitude) : formData.longitude) 
+                : null}
               onLocationChange={(lat, lng, isValid) => {
                 setFormData(prev => ({
                   ...prev,
-                  latitude: lat,
-                  longitude: lng
+                  latitude: lat?.toString() || '',
+                  longitude: lng?.toString() || ''
                 }));
+                // Clear location error when location is manually set
+                if (locationError) {
+                  setLocationError('');
+                }
               }}
               validationType="plot"
               validationCenter={{ lat: 12.697541550243653, lng: 78.06162609693409 }} // Phase 1 center

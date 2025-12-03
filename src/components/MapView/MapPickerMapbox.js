@@ -33,9 +33,16 @@ function MapPickerMapbox({
   });
   
   const [validationError, setValidationError] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState(
-    latitude && longitude ? { lat: latitude, lng: longitude } : null
-  );
+  const [selectedLocation, setSelectedLocation] = useState(() => {
+    if (latitude && longitude) {
+      const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+      const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng };
+      }
+    }
+    return null;
+  });
 
   // Validate location based on type
   const validateLocation = (lat, lng) => {
@@ -121,6 +128,28 @@ function MapPickerMapbox({
       onValidationError(validation.error);
     }
   };
+
+  // Update selectedLocation when props change
+  useEffect(() => {
+    if (latitude && longitude) {
+      const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+      const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setSelectedLocation(prev => {
+          // Only update if the location actually changed to avoid unnecessary re-renders
+          if (!prev || 
+              Math.abs(prev.lat - lat) > 0.000001 || 
+              Math.abs(prev.lng - lng) > 0.000001) {
+            return { lat, lng };
+          }
+          return prev;
+        });
+      }
+    } else {
+      // Clear location if props are cleared
+      setSelectedLocation(null);
+    }
+  }, [latitude, longitude]);
 
   // Update view state when selected location changes
   useEffect(() => {
@@ -281,15 +310,9 @@ function MapPickerMapbox({
         <p>Click on the map to select a location, or enter coordinates manually.</p>
         {validationType && (
           <p className="mt-1">
-            <span className="font-medium">Validation:</span> {validationType} must be within {
-              validationType === 'domain' ? '4km' :
-              validationType === 'plot' ? 'domain boundary' :
-              validationType === 'plant' ? '100m' : ''
-            } of {
-              validationType === 'domain' ? 'Phase 1 center' :
-              validationType === 'plot' ? 'domain center' :
-              validationType === 'plant' ? 'plot center' : ''
-            }.
+            <span className="font-medium">Validation:</span> {validationType === 'domain' && 'Domain must be within 4km of Phase 1 center.'}
+            {validationType === 'plot' && 'Plot must be within the domain boundary.'}
+            {validationType === 'plant' && 'Plant must be within 100m of plot center.'}
           </p>
         )}
       </div>
