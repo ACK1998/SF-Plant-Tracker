@@ -183,8 +183,11 @@ sentryErrorHandler(app);
 // Error handling middleware
 app.use(errorHandler);
 
-// Only start server if not in test environment, and await DB connection first
-if (process.env.NODE_ENV !== 'test') {
+// Only start server if not in test environment and not in serverless (Vercel) environment
+// Vercel sets VERCEL=1 environment variable
+const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+if (process.env.NODE_ENV !== 'test' && !isServerless) {
   (async () => {
     try {
       await connectDB();
@@ -217,6 +220,19 @@ if (process.env.NODE_ENV !== 'test') {
     } catch (err) {
       logger.error('Failed to start server:', err);
       process.exit(1);
+    }
+  })();
+} else if (isServerless) {
+  // For serverless environments, connect to DB on first request
+  // Connection will be reused across invocations
+  (async () => {
+    try {
+      // Only connect if not already connected
+      if (mongoose.connection.readyState === 0) {
+        await connectDB();
+      }
+    } catch (err) {
+      logger.error('Failed to connect to database in serverless environment:', err);
     }
   })();
 }

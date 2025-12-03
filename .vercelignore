@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Development files
+*.md
+!README.md
+!VERCEL_DEPLOYMENT.md
+
+# Test files
+tests/
+**/*.test.js
+**/*.spec.js
+**/*.test.ts
+**/*.spec.ts
+playwright.config.ts
+
+# Scripts
+scripts/
+backend/scripts/
+
+# Logs
+*.log
+logs/
+backend/logs/
+
+# Uploads (use cloud storage in production)
+backend/uploads/
+
+# Database backups
+backups/
+
+# Environment files (use Vercel environment variables)
+.env*
+!.env.example
+
+# Google Cloud credentials (use environment variables)
+backend/config/google-cloud-key.json
+backend/config/google-cloud-key.json.example
+
+# Development config
+ecosystem.config.js
+
+# Build artifacts (will be generated)
+build/
+dist/
+
+# Editor files
+.vscode/
+.idea/
+.cursor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
