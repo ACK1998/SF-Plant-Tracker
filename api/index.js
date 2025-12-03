@@ -74,11 +74,18 @@ const connectToDatabase = async () => {
         }
         console.log('[DB] Starting connection...');
         await connectDB();
-        // Wait a bit to ensure connection is fully established
-        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Wait for connection to be fully ready
+        // With bufferCommands: false, we must ensure connection is complete
+        let retries = 10;
+        while (mongoose.connection.readyState !== 1 && retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retries--;
+        }
+        
         // Verify connection is ready
         if (mongoose.connection.readyState !== 1) {
-          throw new Error('Database connection not established after connectDB()');
+          throw new Error(`Database connection not established. ReadyState: ${mongoose.connection.readyState}`);
         }
         isConnected = true;
         console.log('[DB] Connection established, readyState:', mongoose.connection.readyState);
@@ -93,9 +100,9 @@ const connectToDatabase = async () => {
 
   await connectionPromise;
   
-  // Final verification
+  // Final verification - connection must be ready
   if (!mongoose || mongoose.connection.readyState !== 1) {
-    throw new Error('Database connection failed - readyState: ' + (mongoose?.connection?.readyState || 'N/A'));
+    throw new Error(`Database connection failed - readyState: ${mongoose?.connection?.readyState || 'N/A'}`);
   }
 };
 
