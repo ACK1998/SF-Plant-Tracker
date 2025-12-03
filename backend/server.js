@@ -19,7 +19,10 @@ dotenv.config();
 initSentry();
 
 // Validate required environment variables for production
-if (process.env.NODE_ENV === 'production') {
+// Don't exit in serverless mode - let the API handler deal with it
+const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+if (process.env.NODE_ENV === 'production' && !isServerless) {
   const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
   
