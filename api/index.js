@@ -76,49 +76,53 @@ const connectToDatabase = async () => {
         console.log('[DB] MONGODB_URI present:', !!process.env.MONGODB_URI);
         console.log('[DB] Initial readyState:', mongoose.connection.readyState);
         
-        // Wait for 'connected' event to ensure connection is fully ready
-        const connectionReady = new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Database connection timeout after 10 seconds'));
-          }, 10000);
-          
-          if (mongoose.connection.readyState === 1) {
-            clearTimeout(timeout);
-            resolve();
-            return;
-          }
-          
-          mongoose.connection.once('connected', () => {
-            clearTimeout(timeout);
-            console.log('[DB] Connected event fired');
-            resolve();
-          });
-          
-          mongoose.connection.once('error', (err) => {
-            clearTimeout(timeout);
-            reject(err);
-          });
-        });
-        
-        // Call connectDB and wait for connection to be ready
+        // Call connectDB - mongoose.connect() already waits for connection
         try {
           await connectDB();
-          console.log('[DB] connectDB() completed, waiting for connected event...');
-          await connectionReady;
-          console.log('[DB] Connection event received, readyState:', mongoose.connection.readyState);
+          console.log('[DB] connectDB() completed');
+          
+          // Give it a moment for readyState to update
+          // mongoose.connect() should already have established the connection
+          let attempts = 0;
+          while (mongoose.connection.readyState !== 1 && attempts < 5) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+            console.log(`[DB] Checking readyState... ${mongoose.connection.readyState} (attempt ${attempts})`);
+          }
+          
+          // If still not ready, check if connection is actually working
+          // Sometimes readyState might be 2 (connecting) but connection works
+          if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
+            // Try a simple operation to verify connection works
+            try {
+              await mongoose.connection.db.admin().ping();
+              console.log('[DB] Connection verified with ping, readyState:', mongoose.connection.readyState);
+              isConnected = true;
+            } catch (pingError) {
+              console.error('[DB] Ping failed:', pingError);
+              // If ping fails but readyState is 2, connection might still be establishing
+              if (mongoose.connection.readyState === 2) {
+                // Wait a bit more
+                await new Promise(resolve => setTimeout(resolve, 500));
+                if (mongoose.connection.readyState === 1) {
+                  isConnected = true;
+                  console.log('[DB] Connection ready after additional wait');
+                } else {
+                  throw new Error(`Database connection not ready. ReadyState: ${mongoose.connection.readyState}`);
+                }
+              } else {
+                throw pingError;
+              }
+            }
+          } else {
+            throw new Error(`Database connection failed. ReadyState: ${mongoose.connection.readyState}`);
+          }
+          
+          console.log('[DB] ✅ Connection established, readyState:', mongoose.connection.readyState);
         } catch (connectError) {
-          console.error('[DB] connectDB() threw error:', connectError);
+          console.error('[DB] connectDB() error:', connectError);
           throw connectError;
         }
-        
-        // Final verification
-        const finalReadyState = mongoose.connection.readyState;
-        console.log('[DB] Final readyState:', finalReadyState);
-        if (finalReadyState !== 1) {
-          throw new Error(`Database connection not established. ReadyState: ${finalReadyState}. Connection may have failed.`);
-        }
-        isConnected = true;
-        console.log('[DB] ✅ Connection established successfully');
       } else if (mongoose && mongoose.connection.readyState !== 0) {
         console.log('[DB] Connection already in progress, readyState:', mongoose.connection.readyState);
       }
