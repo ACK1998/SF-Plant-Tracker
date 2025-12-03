@@ -12,8 +12,21 @@ if (missingVars.length > 0) {
   missingVars.forEach(v => console.error(`  - ${v}`));
 }
 
-const connectDB = require('../backend/config/database');
-const mongoose = require('mongoose');
+// Try to load backend dependencies with better error handling
+let connectDB, mongoose;
+try {
+  connectDB = require('../backend/config/database');
+  mongoose = require('mongoose');
+} catch (error) {
+  console.error('Failed to load backend modules:', error);
+  console.error('Error details:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack
+  });
+  // Re-throw with more context
+  throw new Error(`Backend dependencies not found. Make sure backend dependencies are installed. Original error: ${error.message}`);
+}
 
 // Ensure database connection for serverless functions
 let isConnected = false;
@@ -57,18 +70,50 @@ const connectToDatabase = async () => {
 let app;
 try {
   app = require('../backend/server');
+  console.log('✅ Express app loaded successfully');
 } catch (error) {
-  console.error('Failed to load Express app:', error);
-  // Create a minimal error app
-  const express = require('express');
-  app = express();
-  app.use((req, res) => {
-    res.status(500).json({
-      success: false,
-      message: 'Server configuration error. Please check environment variables.',
-      error: missingVars.length > 0 ? `Missing: ${missingVars.join(', ')}` : error.message
-    });
+  console.error('❌ Failed to load Express app:', error);
+  console.error('Error details:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+    requireStack: error.requireStack
   });
+  
+  // Create a minimal error app that provides helpful error messages
+  try {
+    const express = require('express');
+    app = express();
+    app.use((req, res) => {
+      const errorMessage = error.code === 'MODULE_NOT_FOUND' 
+        ? 'Backend dependencies not installed. Please ensure backend dependencies are installed during build.'
+        : error.message;
+      
+      res.status(500).json({
+        success: false,
+        message: 'Server configuration error',
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? {
+          code: error.code,
+          missingVars: missingVars.length > 0 ? missingVars : undefined
+        } : undefined,
+        hint: error.code === 'MODULE_NOT_FOUND' 
+          ? 'Check Vercel build logs to ensure backend dependencies are installed'
+          : 'Check environment variables and function logs'
+      });
+    });
+  } catch (expressError) {
+    console.error('Even Express failed to load:', expressError);
+    // Last resort - return a simple function
+    app = (req, res) => {
+      res.status(500).json({
+        success: false,
+        message: 'Critical server error',
+        error: 'Unable to initialize server. Please check logs.',
+        originalError: error.message
+      });
+    };
+  }
 }
 
 // Export as Vercel serverless function
