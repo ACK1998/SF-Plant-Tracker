@@ -188,7 +188,7 @@ app.use(errorHandler);
 
 // Only start server if not in test environment and not in serverless (Vercel) environment
 // Vercel sets VERCEL=1 environment variable
-const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+// Note: isServerless is already declared above
 
 if (process.env.NODE_ENV !== 'test' && !isServerless) {
   (async () => {
