@@ -161,13 +161,6 @@ router.get('/all', auth, async (req, res) => {
       return orgId ? new mongoose.Types.ObjectId(orgId) : null;
     };
 
-    console.log('Categories /all - User info:', {
-      userId: req.user._id,
-      role: req.user.role,
-      organizationId: req.user.organizationId,
-      extractedOrgId: getUserOrgId()
-    });
-
     // Apply role-based filtering for categories
     if (req.user.role === 'super_admin') {
       // Super admin can see all categories (only filter if specifically requested)
@@ -181,7 +174,6 @@ router.get('/all', auth, async (req, res) => {
       // Only filter by organizationId if it's actually set
       if (userOrgId) {
         filter.organizationId = userOrgId;
-        console.log('Filtering categories by organizationId:', userOrgId);
       } else {
         // If user doesn't have an organizationId, they might not see any categories
         // This is expected behavior - users should be assigned to an organization
@@ -189,34 +181,10 @@ router.get('/all', auth, async (req, res) => {
       }
     }
     
-    console.log('Categories filter:', JSON.stringify(filter, null, 2));
-    
-    // First, let's check how many categories exist total
-    const totalCategories = await Category.countDocuments({ isActive: true });
-    console.log(`Total active categories in database: ${totalCategories}`);
-    
     const categories = await Category.find(filter)
       .populate('createdBy', 'firstName lastName')
       .populate('organizationId', 'name')
       .sort({ displayName: 1 });
-
-    console.log(`Found ${categories.length} categories for user ${req.user._id} (role: ${req.user.role})`);
-    
-    // Log first few categories for debugging
-    if (categories.length > 0) {
-      console.log('Sample categories:', categories.slice(0, 3).map(cat => ({
-        name: cat.name,
-        displayName: cat.displayName,
-        organizationId: cat.organizationId
-      })));
-    } else {
-      // If no categories found, check if there are any categories with null organizationId
-      const categoriesWithNullOrg = await Category.countDocuments({ 
-        isActive: true, 
-        organizationId: null 
-      });
-      console.log(`Categories with null organizationId: ${categoriesWithNullOrg}`);
-    }
 
     res.json({
       success: true,
