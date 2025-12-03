@@ -55,7 +55,11 @@ const connectToDatabase = async () => {
   // If connection is in progress, wait for it
   if (connectionPromise) {
     await connectionPromise;
-    return;
+    // Double-check connection state after waiting
+    if (mongoose && mongoose.connection.readyState === 1) {
+      isConnected = true;
+      return;
+    }
   }
 
   // Start new connection
@@ -68,18 +72,31 @@ const connectToDatabase = async () => {
         if (!connectDB) {
           throw new Error('Database connection module not loaded');
         }
+        console.log('[DB] Starting connection...');
         await connectDB();
+        // Wait a bit to ensure connection is fully established
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Verify connection is ready
+        if (mongoose.connection.readyState !== 1) {
+          throw new Error('Database connection not established after connectDB()');
+        }
         isConnected = true;
+        console.log('[DB] Connection established, readyState:', mongoose.connection.readyState);
       }
       connectionPromise = null;
     } catch (error) {
-      console.error('Database connection error:', error);
+      console.error('[DB] Connection error:', error);
       connectionPromise = null;
       throw error;
     }
   })();
 
   await connectionPromise;
+  
+  // Final verification
+  if (!mongoose || mongoose.connection.readyState !== 1) {
+    throw new Error('Database connection failed - readyState: ' + (mongoose?.connection?.readyState || 'N/A'));
+  }
 };
 
 // Import the Express app (this will not start the HTTP server in serverless mode)
