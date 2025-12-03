@@ -25,6 +25,7 @@ if (missingVars.length > 0) {
 
 // Try to load backend dependencies with better error handling
 let connectDB, mongoose;
+let backendModulesError = null;
 try {
   connectDB = require('../backend/config/database');
   mongoose = require('mongoose');
@@ -36,6 +37,7 @@ try {
     code: error.code,
     stack: error.stack
   });
+  backendModulesError = error;
   // Don't throw - we'll handle it in the handler
 }
 
@@ -140,6 +142,18 @@ module.exports = async (req, res) => {
   
   try {
     console.log(`[API Handler] ${req.method} ${req.url} - Start`);
+    
+    // Check if backend modules failed to load
+    if (backendModulesError) {
+      console.error('[API Handler] Backend modules failed to load');
+      return res.status(500).json({
+        success: false,
+        message: 'Backend modules not available',
+        error: backendModulesError.message,
+        code: backendModulesError.code,
+        hint: 'Check Vercel build logs to ensure backend dependencies are installed'
+      });
+    }
     
     // Check if app failed to load
     if (appLoadError) {
