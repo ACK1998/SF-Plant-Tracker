@@ -73,26 +73,42 @@ const connectToDatabase = async () => {
           throw new Error('Database connection module not loaded');
         }
         console.log('[DB] Starting connection...');
-        await connectDB();
+        console.log('[DB] MONGODB_URI present:', !!process.env.MONGODB_URI);
+        console.log('[DB] Initial readyState:', mongoose.connection.readyState);
+        
+        // Call connectDB and wait for it
+        try {
+          await connectDB();
+          console.log('[DB] connectDB() completed, readyState:', mongoose.connection.readyState);
+        } catch (connectError) {
+          console.error('[DB] connectDB() threw error:', connectError);
+          throw connectError;
+        }
         
         // Wait for connection to be fully ready
         // With bufferCommands: false, we must ensure connection is complete
-        let retries = 10;
+        let retries = 20; // Increased retries
         while (mongoose.connection.readyState !== 1 && retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log(`[DB] Waiting for connection... readyState: ${mongoose.connection.readyState}, retries: ${retries}`);
+          await new Promise(resolve => setTimeout(resolve, 200));
           retries--;
         }
         
         // Verify connection is ready
-        if (mongoose.connection.readyState !== 1) {
-          throw new Error(`Database connection not established. ReadyState: ${mongoose.connection.readyState}`);
+        const finalReadyState = mongoose.connection.readyState;
+        console.log('[DB] Final readyState:', finalReadyState);
+        if (finalReadyState !== 1) {
+          throw new Error(`Database connection not established. ReadyState: ${finalReadyState}. Connection may have failed.`);
         }
         isConnected = true;
-        console.log('[DB] Connection established, readyState:', mongoose.connection.readyState);
+        console.log('[DB] ✅ Connection established successfully');
+      } else if (mongoose && mongoose.connection.readyState !== 0) {
+        console.log('[DB] Connection already in progress, readyState:', mongoose.connection.readyState);
       }
       connectionPromise = null;
     } catch (error) {
       console.error('[DB] Connection error:', error);
+      console.error('[DB] Error stack:', error.stack);
       connectionPromise = null;
       throw error;
     }
