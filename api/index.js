@@ -2,6 +2,17 @@
 // Set Vercel environment flag before loading server
 process.env.VERCEL = '1';
 
+// Global error handlers to catch any unhandled errors
+process.on('uncaughtException', (error) => {
+  console.error('[UNCAUGHT EXCEPTION]', error);
+  console.error('[UNCAUGHT EXCEPTION] Stack:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+  console.error('[UNHANDLED REJECTION] Promise:', promise);
+});
+
 // Check for required environment variables before loading server
 const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -17,15 +28,15 @@ let connectDB, mongoose;
 try {
   connectDB = require('../backend/config/database');
   mongoose = require('mongoose');
+  console.log('✅ Backend modules loaded');
 } catch (error) {
-  console.error('Failed to load backend modules:', error);
+  console.error('❌ Failed to load backend modules:', error);
   console.error('Error details:', {
     message: error.message,
     code: error.code,
     stack: error.stack
   });
-  // Re-throw with more context
-  throw new Error(`Backend dependencies not found. Make sure backend dependencies are installed. Original error: ${error.message}`);
+  // Don't throw - we'll handle it in the handler
 }
 
 // Ensure database connection for serverless functions
@@ -34,7 +45,7 @@ let connectionPromise = null;
 
 const connectToDatabase = async () => {
   // Check if already connected
-  if (mongoose.connection.readyState === 1) {
+  if (mongoose && mongoose.connection.readyState === 1) {
     isConnected = true;
     return;
   }
@@ -48,9 +59,12 @@ const connectToDatabase = async () => {
   // Start new connection
   connectionPromise = (async () => {
     try {
-      if (mongoose.connection.readyState === 0) {
+      if (mongoose && mongoose.connection.readyState === 0) {
         if (!process.env.MONGODB_URI) {
           throw new Error('MONGODB_URI environment variable is not set');
+        }
+        if (!connectDB) {
+          throw new Error('Database connection module not loaded');
         }
         await connectDB();
         isConnected = true;
@@ -59,7 +73,7 @@ const connectToDatabase = async () => {
     } catch (error) {
       console.error('Database connection error:', error);
       connectionPromise = null;
-      throw error; // Re-throw so we can handle it properly
+      throw error;
     }
   })();
 
@@ -68,6 +82,8 @@ const connectToDatabase = async () => {
 
 // Import the Express app (this will not start the HTTP server in serverless mode)
 let app;
+let appLoadError = null;
+
 try {
   app = require('../backend/server');
   console.log('✅ Express app loaded successfully');
@@ -79,6 +95,7 @@ try {
     stack: error.stack,
     requireStack: error.requireStack
   });
+  appLoadError = error;
   
   // Create a minimal error app that provides helpful error messages
   try {
@@ -93,10 +110,10 @@ try {
         success: false,
         message: 'Server configuration error',
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? {
+        details: {
           code: error.code,
           missingVars: missingVars.length > 0 ? missingVars : undefined
-        } : undefined,
+        },
         hint: error.code === 'MODULE_NOT_FOUND' 
           ? 'Check Vercel build logs to ensure backend dependencies are installed'
           : 'Check environment variables and function logs'
@@ -119,8 +136,21 @@ try {
 // Export as Vercel serverless function
 // Vercel will call this function for each request
 module.exports = async (req, res) => {
+  const startTime = Date.now();
+  
   try {
-    console.log(`[API Handler] ${req.method} ${req.url}`);
+    console.log(`[API Handler] ${req.method} ${req.url} - Start`);
+    
+    // Check if app failed to load
+    if (appLoadError) {
+      console.error('[API Handler] App failed to load, returning error');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error',
+        error: appLoadError.message,
+        code: appLoadError.code
+      });
+    }
     
     // Check for missing environment variables
     if (missingVars.length > 0) {
@@ -136,7 +166,7 @@ module.exports = async (req, res) => {
     // Connect to database if not already connected
     try {
       await connectToDatabase();
-      console.log('[API Handler] Database connected, readyState:', mongoose.connection.readyState);
+      console.log(`[API Handler] Database connected, readyState: ${mongoose?.connection?.readyState || 'N/A'}`);
     } catch (dbError) {
       console.error('[API Handler] Database connection failed:', dbError);
       console.error('[API Handler] Error details:', {
@@ -157,45 +187,32 @@ module.exports = async (req, res) => {
     }
     
     // Handle the request with Express app
-    // Note: Express app routes are already prefixed with /api
-    // Vercel rewrites /api/* to this function, so the path includes /api
-    
-    // Add error handler for unhandled promise rejections in Express
-    const originalSend = res.send.bind(res);
-    const originalJson = res.json.bind(res);
-    const originalEnd = res.end.bind(res);
-    
-    let responseSent = false;
-    
-    res.send = function(...args) {
-      if (!responseSent) {
-        responseSent = true;
-        console.log(`[API Handler] Response sent via send(): ${res.statusCode}`);
+    // Wrap in try-catch to catch any synchronous errors
+    try {
+      app(req, res);
+    } catch (expressError) {
+      console.error('[API Handler] Express app error:', expressError);
+      console.error('[API Handler] Express error stack:', expressError.stack);
+      
+      if (!res.headersSent) {
+        return res.status(500).json({
+          success: false,
+          message: 'Express error',
+          error: expressError.message,
+          details: {
+            name: expressError.name,
+            code: expressError.code
+          }
+        });
       }
-      return originalSend.apply(this, args);
-    };
+    }
     
-    res.json = function(...args) {
-      if (!responseSent) {
-        responseSent = true;
-        console.log(`[API Handler] Response sent via json(): ${res.statusCode}`);
-      }
-      return originalJson.apply(this, args);
-    };
-    
-    res.end = function(...args) {
-      if (!responseSent) {
-        responseSent = true;
-        console.log(`[API Handler] Response sent via end(): ${res.statusCode}`);
-      }
-      return originalEnd.apply(this, args);
-    };
-    
-    // Handle Express app
-    app(req, res);
+    const duration = Date.now() - startTime;
+    console.log(`[API Handler] ${req.method} ${req.url} - Completed in ${duration}ms`);
     
   } catch (error) {
-    console.error('[API Handler] Unhandled error:', error);
+    const duration = Date.now() - startTime;
+    console.error(`[API Handler] ${req.method} ${req.url} - Error after ${duration}ms:`, error);
     console.error('[API Handler] Error details:', {
       message: error.message,
       stack: error.stack,
@@ -220,4 +237,3 @@ module.exports = async (req, res) => {
     }
   }
 };
-
