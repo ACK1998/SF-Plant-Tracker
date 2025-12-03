@@ -33,7 +33,13 @@ const connectDB = async () => {
 
   } catch (error) {
     logger.error(`❌ MongoDB connection error: ${error.message}`);
-    process.exit(1);
+    // Don't exit in serverless environments - throw error instead
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (isServerless) {
+      throw error; // Let the API handler deal with it
+    } else {
+      process.exit(1); // Only exit in non-serverless environments
+    }
   }
 };
 

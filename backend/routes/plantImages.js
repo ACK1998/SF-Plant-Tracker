@@ -8,25 +8,31 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Check if we're in a serverless environment
+const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/plant-images');
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error);
-    }
-  },
-  filename: (req, file, cb) => {
-    const plantId = req.body.plantId;
-    const month = req.body.month;
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    cb(null, `plant-${plantId}-${month}-${timestamp}${ext}`);
-  }
-});
+// Use memory storage in serverless (Vercel), disk storage in development
+const storage = isServerless 
+  ? multer.memoryStorage() // Store in memory for serverless
+  : multer.diskStorage({
+      destination: async (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../uploads/plant-images');
+        try {
+          await fs.mkdir(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        } catch (error) {
+          cb(error);
+        }
+      },
+      filename: (req, file, cb) => {
+        const plantId = req.body.plantId;
+        const month = req.body.month;
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        cb(null, `plant-${plantId}-${month}-${timestamp}${ext}`);
+      }
+    });
 
 const fileFilter = (req, file, cb) => {
   // Accept only image files

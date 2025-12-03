@@ -11,8 +11,15 @@ const path = require('path');
  */
 const uploadFile = async (fileBuffer, destination, metadata = {}) => {
   try {
-    if (process.env.NODE_ENV === 'production' && process.env.GOOGLE_CLOUD_PROJECT_ID) {
-      // Use Google Cloud Storage in production
+    // Check if we're in a serverless environment
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    // In serverless or production with GCS, use Google Cloud Storage
+    if (isServerless || (process.env.NODE_ENV === 'production' && process.env.GOOGLE_CLOUD_PROJECT_ID)) {
+      if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
+        throw new Error('Google Cloud Storage is required in serverless environments. Please configure GOOGLE_CLOUD_PROJECT_ID.');
+      }
+      // Use Google Cloud Storage
       const result = await uploadToGCS(fileBuffer, destination, metadata);
       return {
         url: result.url,
@@ -22,7 +29,7 @@ const uploadFile = async (fileBuffer, destination, metadata = {}) => {
         storage: 'gcs'
       };
     } else {
-      // Use local storage in development
+      // Use local storage only in non-serverless development
       const uploadDir = path.join(__dirname, '../uploads/plant-images');
       const fullPath = path.join(uploadDir, destination);
       
