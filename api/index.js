@@ -55,11 +55,7 @@ const connectToDatabase = async () => {
   // If connection is in progress, wait for it
   if (connectionPromise) {
     await connectionPromise;
-    // Double-check connection state after waiting
-    if (mongoose && mongoose.connection.readyState === 1) {
-      isConnected = true;
-      return;
-    }
+    return;
   }
 
   // Start new connection
@@ -73,74 +69,19 @@ const connectToDatabase = async () => {
           throw new Error('Database connection module not loaded');
         }
         console.log('[DB] Starting connection...');
-        console.log('[DB] MONGODB_URI present:', !!process.env.MONGODB_URI);
-        console.log('[DB] Initial readyState:', mongoose.connection.readyState);
-        
-        // Call connectDB - mongoose.connect() already waits for connection
-        try {
-          await connectDB();
-          console.log('[DB] connectDB() completed');
-          
-          // Give it a moment for readyState to update
-          // mongoose.connect() should already have established the connection
-          let attempts = 0;
-          while (mongoose.connection.readyState !== 1 && attempts < 5) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-            console.log(`[DB] Checking readyState... ${mongoose.connection.readyState} (attempt ${attempts})`);
-          }
-          
-          // If still not ready, check if connection is actually working
-          // Sometimes readyState might be 2 (connecting) but connection works
-          if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
-            // Try a simple operation to verify connection works
-            try {
-              await mongoose.connection.db.admin().ping();
-              console.log('[DB] Connection verified with ping, readyState:', mongoose.connection.readyState);
-              isConnected = true;
-            } catch (pingError) {
-              console.error('[DB] Ping failed:', pingError);
-              // If ping fails but readyState is 2, connection might still be establishing
-              if (mongoose.connection.readyState === 2) {
-                // Wait a bit more
-                await new Promise(resolve => setTimeout(resolve, 500));
-                if (mongoose.connection.readyState === 1) {
-                  isConnected = true;
-                  console.log('[DB] Connection ready after additional wait');
-                } else {
-                  throw new Error(`Database connection not ready. ReadyState: ${mongoose.connection.readyState}`);
-                }
-              } else {
-                throw pingError;
-              }
-            }
-          } else {
-            throw new Error(`Database connection failed. ReadyState: ${mongoose.connection.readyState}`);
-          }
-          
-          console.log('[DB] ✅ Connection established, readyState:', mongoose.connection.readyState);
-        } catch (connectError) {
-          console.error('[DB] connectDB() error:', connectError);
-          throw connectError;
-        }
-      } else if (mongoose && mongoose.connection.readyState !== 0) {
-        console.log('[DB] Connection already in progress, readyState:', mongoose.connection.readyState);
+        await connectDB();
+        isConnected = true;
+        console.log('[DB] ✅ Connection established');
       }
       connectionPromise = null;
     } catch (error) {
       console.error('[DB] Connection error:', error);
-      console.error('[DB] Error stack:', error.stack);
       connectionPromise = null;
       throw error;
     }
   })();
 
   await connectionPromise;
-  
-  // Final verification - connection must be ready
-  if (!mongoose || mongoose.connection.readyState !== 1) {
-    throw new Error(`Database connection failed - readyState: ${mongoose?.connection?.readyState || 'N/A'}`);
-  }
 };
 
 // Import the Express app (this will not start the HTTP server in serverless mode)
