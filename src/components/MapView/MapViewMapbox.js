@@ -147,6 +147,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     latitude: MAPBOX_CONFIG.defaultCenter[1],
     zoom: MAPBOX_CONFIG.defaultZoom
   });
+  const [initialCenterSet, setInitialCenterSet] = useState(false);
   
   const [mapStyle, setMapStyle] = useState('streets');
   
@@ -249,6 +250,42 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       });
     }
   }, [domains, plots, mapViewPlants, loading, error]);
+
+  // Calculate and set initial map center based on all domains
+  useEffect(() => {
+    if (!loading && !error && domains && domains.length > 0 && !initialCenterSet) {
+      // Filter domains with valid coordinates
+      const domainsWithCoords = domains.filter(d => 
+        d.latitude != null && d.longitude != null && 
+        !isNaN(d.latitude) && !isNaN(d.longitude)
+      );
+      
+      if (domainsWithCoords.length > 0) {
+        // Convert to format expected by getCenterPoint: {lat, lng}
+        const domainCoords = domainsWithCoords.map(d => ({
+          lat: d.latitude,
+          lng: d.longitude
+        }));
+        
+        // Calculate center point
+        const center = getCenterPoint(domainCoords);
+        
+        // Convert to Mapbox coordinates format [lng, lat]
+        const mapboxCenter = toMapboxCoordinates(center.lat, center.lng);
+        
+        // Update viewState with calculated center
+        setViewState(prev => ({
+          ...prev,
+          longitude: mapboxCenter[0],
+          latitude: mapboxCenter[1],
+          zoom: MAPBOX_CONFIG.defaultZoom
+        }));
+        
+        setInitialCenterSet(true);
+        console.log('Map centered on all domains:', center, 'domains count:', domainsWithCoords.length);
+      }
+    }
+  }, [domains, loading, error, initialCenterSet]);
 
   // Set map ready when data is loaded or after a timeout
   useEffect(() => {
@@ -1223,8 +1260,21 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       if (user.role === 'org_admin') {
         const orgDomains = domains.filter(d => d.organizationId === user.organizationId);
         if (orgDomains.length > 0) {
-          center = getCenterPoint(orgDomains.map(d => [d.latitude, d.longitude]));
-          center = toMapboxCoordinates(center[0], center[1]);
+          // Filter domains with valid coordinates
+          const orgDomainsWithCoords = orgDomains.filter(d => 
+            d.latitude != null && d.longitude != null && 
+            !isNaN(d.latitude) && !isNaN(d.longitude)
+          );
+          
+          if (orgDomainsWithCoords.length > 0) {
+            // Convert to format expected by getCenterPoint: {lat, lng}
+            const domainCoords = orgDomainsWithCoords.map(d => ({
+              lat: d.latitude,
+              lng: d.longitude
+            }));
+            const centerPoint = getCenterPoint(domainCoords);
+            center = toMapboxCoordinates(centerPoint.lat, centerPoint.lng);
+          }
         }
       } else if (user.role === 'domain_admin') {
         const domain = domains.find(d => d._id === user.domainId);
@@ -1248,10 +1298,27 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         transitionDuration: MAPBOX_CONFIG.flyToDuration
       }));
     } else {
+      // For super_admin, center on all domains
+      const domainsWithCoords = domains?.filter(d => 
+        d.latitude != null && d.longitude != null && 
+        !isNaN(d.latitude) && !isNaN(d.longitude)
+      ) || [];
+      
+      let center = MAPBOX_CONFIG.defaultCenter;
+      if (domainsWithCoords.length > 0) {
+        // Convert to format expected by getCenterPoint: {lat, lng}
+        const domainCoords = domainsWithCoords.map(d => ({
+          lat: d.latitude,
+          lng: d.longitude
+        }));
+        const centerPoint = getCenterPoint(domainCoords);
+        center = toMapboxCoordinates(centerPoint.lat, centerPoint.lng);
+      }
+      
       setViewState(prev => ({
         ...prev,
-        longitude: MAPBOX_CONFIG.defaultCenter[0],
-        latitude: MAPBOX_CONFIG.defaultCenter[1],
+        longitude: center[0],
+        latitude: center[1],
         zoom: MAPBOX_CONFIG.defaultZoom,
         transitionDuration: MAPBOX_CONFIG.flyToDuration
       }));
