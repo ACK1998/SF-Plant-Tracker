@@ -1,0 +1,15 @@
+{
+  "short_name": "Sanctity Ferme",
+  "name": "Sanctity Ferme",
+  "icons": [
+    {
+      "src": "sfLogo.png",
+      "type": "image/avif",
+      "sizes": "any"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#22c55e",
+  "background_color": "#ffffff"
+} 

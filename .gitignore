@@ -89,7 +89,10 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public - commented out, needed for React app
+# public
+# Exclude large PDF files from public
+public/*.pdf
 
 # Storybook build outputs
 .out
