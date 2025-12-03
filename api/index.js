@@ -119,43 +119,105 @@ try {
 // Export as Vercel serverless function
 // Vercel will call this function for each request
 module.exports = async (req, res) => {
-  try {
-    // Check for missing environment variables
-    if (missingVars.length > 0) {
-      return res.status(500).json({
-        success: false,
-        message: 'Server configuration error',
-        error: `Missing required environment variables: ${missingVars.join(', ')}`,
-        hint: 'Please set these in Vercel Environment Variables'
-      });
-    }
-
-    // Connect to database if not already connected
+  // Wrap everything in a promise to catch all errors
+  return new Promise(async (resolve) => {
     try {
-      await connectToDatabase();
-    } catch (dbError) {
-      console.error('Database connection failed:', dbError);
-      return res.status(500).json({
-        success: false,
-        message: 'Database connection failed',
-        error: process.env.NODE_ENV === 'development' ? dbError.message : 'Unable to connect to database'
+      console.log(`[API Handler] ${req.method} ${req.url}`);
+      
+      // Check for missing environment variables
+      if (missingVars.length > 0) {
+        console.error('[API Handler] Missing environment variables:', missingVars);
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Server configuration error',
+            error: `Missing required environment variables: ${missingVars.join(', ')}`,
+            hint: 'Please set these in Vercel Environment Variables'
+          });
+        }
+        return resolve();
+      }
+
+      // Connect to database if not already connected
+      try {
+        await connectToDatabase();
+        console.log('[API Handler] Database connected');
+      } catch (dbError) {
+        console.error('[API Handler] Database connection failed:', dbError);
+        console.error('[API Handler] Error details:', {
+          message: dbError.message,
+          stack: dbError.stack,
+          code: dbError.code
+        });
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Database connection failed',
+            error: process.env.NODE_ENV === 'development' ? dbError.message : 'Unable to connect to database',
+            details: process.env.NODE_ENV === 'development' ? {
+              code: dbError.code,
+              stack: dbError.stack
+            } : undefined
+          });
+        }
+        return resolve();
+      }
+      
+      // Handle the request with Express app
+      // Note: Express app routes are already prefixed with /api
+      // Vercel rewrites /api/* to this function, so the path includes /api
+      
+      // Set up error handlers for Express
+      const originalEnd = res.end;
+      res.end = function(...args) {
+        console.log(`[API Handler] Response sent: ${res.statusCode}`);
+        originalEnd.apply(this, args);
+        resolve();
+      };
+      
+      // Handle Express errors
+      app.on('error', (error) => {
+        console.error('[API Handler] Express error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Express error',
+            error: error.message
+          });
+        }
+        resolve();
       });
-    }
-    
-    // Handle the request with Express app
-    // Note: Express app routes are already prefixed with /api
-    // Vercel rewrites /api/* to this function, so the path includes /api
-    app(req, res);
-  } catch (error) {
-    console.error('API handler error:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        success: false, 
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      
+      // Call Express app
+      app(req, res);
+      
+    } catch (error) {
+      console.error('[API Handler] Unhandled error:', error);
+      console.error('[API Handler] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
       });
+      
+      if (!res.headersSent) {
+        try {
+          res.status(500).json({ 
+            success: false, 
+            message: 'Internal server error',
+            error: error.message,
+            details: process.env.NODE_ENV === 'development' ? {
+              stack: error.stack,
+              name: error.name,
+              code: error.code
+            } : undefined
+          });
+        } catch (jsonError) {
+          console.error('[API Handler] Failed to send error response:', jsonError);
+        }
+      }
+      resolve();
     }
-  }
+  });
 };
 
