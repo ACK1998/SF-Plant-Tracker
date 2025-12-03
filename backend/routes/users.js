@@ -96,7 +96,25 @@ router.get('/:id', auth, authorize('super_admin', 'org_admin', 'domain_admin'), 
 // @access  Private (super_admin, org_admin, domain_admin only)
 router.post('/', auth, authorize('super_admin', 'org_admin', 'domain_admin'), canCreateUser, async (req, res) => {
   try {
-    const user = new User(req.body);
+    // Auto-set organizationId for org_admin and domain_admin if not provided
+    const userData = { ...req.body };
+    
+    if (req.user.role === 'org_admin' || req.user.role === 'domain_admin') {
+      const userOrgId = req.user.organizationId?._id || req.user.organizationId;
+      if (!userData.organizationId) {
+        userData.organizationId = userOrgId;
+      }
+    }
+    
+    // Auto-set domainId for domain_admin if not provided
+    if (req.user.role === 'domain_admin') {
+      const userDomainId = req.user.domainId?._id || req.user.domainId;
+      if (!userData.domainId) {
+        userData.domainId = userDomainId;
+      }
+    }
+    
+    const user = new User(userData);
     await user.save();
     
     // Return user without password and populated
@@ -135,6 +153,20 @@ router.post('/', auth, authorize('super_admin', 'org_admin', 'domain_admin'), ca
 // @access  Private (super_admin, org_admin, domain_admin only)
 router.put('/:id', auth, authorize('super_admin', 'org_admin', 'domain_admin'), async (req, res) => {
   try {
+    // Get the user being edited
+    const userToEdit = await User.findById(req.params.id);
+    
+    if (!userToEdit) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Prevent non-super-admin users from editing super admin users
+    if (userToEdit.role === 'super_admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ 
+        message: 'You do not have permission to edit super admin users' 
+      });
+    }
+    
     // Check if user is editing their own profile
     const isEditingOwnProfile = req.params.id === req.user._id.toString();
     
@@ -172,6 +204,7 @@ router.put('/:id', auth, authorize('super_admin', 'org_admin', 'domain_admin'), 
       }
     }
     
+    // Update the user (reuse userToEdit variable)
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -217,15 +250,25 @@ router.put('/:id', auth, authorize('super_admin', 'org_admin', 'domain_admin'), 
 // @access  Private (super_admin, org_admin, domain_admin only)
 router.delete('/:id', auth, authorize('super_admin', 'org_admin', 'domain_admin'), async (req, res) => {
   try {
+    // Get the user being deleted
+    const userToDelete = await User.findById(req.params.id);
+    
+    if (!userToDelete) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Prevent non-super-admin users from deleting super admin users
+    if (userToDelete.role === 'super_admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ 
+        message: 'You do not have permission to delete super admin users' 
+      });
+    }
+    
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive: false },
       { new: true }
     );
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
     
     res.json({
       success: true,

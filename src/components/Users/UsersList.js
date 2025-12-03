@@ -204,6 +204,11 @@ function UsersList({ user, selectedState, showAddModal: showAddModalProp = false
   const canEditUser = (userItem) => {
     if (!user || !user.role) return false;
     
+    // Prevent non-super-admin users from editing super admin users
+    if (userItem.role === 'super_admin' && user.role !== 'super_admin') {
+      return false;
+    }
+    
     // Super admin can edit all users
     if (user.role === 'super_admin') return true;
     
@@ -232,6 +237,11 @@ function UsersList({ user, selectedState, showAddModal: showAddModalProp = false
     
     // Cannot delete yourself
     if (userItem._id === user._id) return false;
+    
+    // Prevent non-super-admin users from deleting super admin users
+    if (userItem.role === 'super_admin' && user.role !== 'super_admin') {
+      return false;
+    }
     
     // Super admin can delete all users except themselves
     if (user.role === 'super_admin') return true;
@@ -632,7 +642,8 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
 
       // Auto-select based on role
       if (currentUser.role === 'org_admin' || currentUser.role === 'domain_admin') {
-        initialData.organizationId = currentUser.organizationId?._id || currentUser.organizationId;
+        const orgId = currentUser.organizationId?._id || currentUser.organizationId;
+        initialData.organizationId = orgId ? String(orgId) : '';
       }
       
       if (currentUser.role === 'domain_admin') {
@@ -740,7 +751,9 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
     e.preventDefault();
     
     // Validate required fields based on role
-    if (!formData.organizationId) {
+    // For super_admin, organizationId is required
+    // For org_admin and domain_admin, it will be auto-set by backend if not provided
+    if (currentUser?.role === 'super_admin' && !formData.organizationId) {
       alert('Please select an organization');
       return;
     }
@@ -800,6 +813,7 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
         [name]: value,
         domainId: '',
         plotIds: []
+        // Keep organizationId - don't reset it
       }));
     }
     
@@ -952,30 +966,9 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
             />
           </div>
 
-          {/* Role and Organization - Use grid only when both fields are shown */}
-          {currentUser?.role !== 'super_admin' ? (
-            // Single column layout for non-super-admin users (no organization field)
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Role *
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                required
-                className="input-field"
-              >
-                <option value="">Select Role</option>
-                {getAvailableRoles(currentUser?.role).map(role => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            // Two column layout for super_admin
+          {/* Role and Organization - Show organization field for super_admin and org_admin */}
+          {currentUser?.role === 'super_admin' || currentUser?.role === 'org_admin' ? (
+            // Two column layout for super_admin and org_admin
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1021,6 +1014,27 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
                   </p>
                 )}
               </div>
+            </div>
+          ) : (
+            // Single column layout for domain_admin users (no organization field)
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Role *
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                required
+                className="input-field"
+              >
+                <option value="">Select Role</option>
+                {getAvailableRoles(currentUser?.role).map(role => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

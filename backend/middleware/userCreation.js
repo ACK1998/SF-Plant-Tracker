@@ -15,12 +15,23 @@ function canCreateUser(req, res, next) {
       });
     }
     
+    // Handle organizationId comparison (could be object or string)
+    const userOrgId = organizationId?._id || organizationId;
+    const newUserOrgIdStr = newUserOrgId?._id || newUserOrgId;
+    
     // Org admin can only create users in their organization
-    if (newUserOrgId && newUserOrgId !== organizationId) {
+    // If newUserOrgId is provided and not empty, it must match the user's organization
+    // If not provided or empty, we'll set it to the user's organization in the route handler
+    if (newUserOrgIdStr && newUserOrgIdStr !== '' && String(newUserOrgIdStr) !== String(userOrgId)) {
       return res.status(403).json({ 
         error: "Invalid org",
         message: "You can only create users in your organization"
       });
+    }
+    
+    // Ensure organizationId is set in req.body for org_admin (will be used in route handler)
+    if (!newUserOrgIdStr || newUserOrgIdStr === '') {
+      req.body.organizationId = String(userOrgId);
     }
     
     return next();
@@ -35,7 +46,11 @@ function canCreateUser(req, res, next) {
       });
     }
     
-    if (newUserDomainId && newUserDomainId !== domainId) {
+    // Handle domainId comparison (could be object or string)
+    const userDomainId = domainId?._id || domainId;
+    const newUserDomainIdStr = newUserDomainId?._id || newUserDomainId;
+    
+    if (newUserDomainIdStr && String(newUserDomainIdStr) !== String(userDomainId)) {
       return res.status(403).json({ 
         error: "Invalid domain",
         message: "You can only create users in your domain"
