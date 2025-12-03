@@ -76,25 +76,42 @@ const connectToDatabase = async () => {
         console.log('[DB] MONGODB_URI present:', !!process.env.MONGODB_URI);
         console.log('[DB] Initial readyState:', mongoose.connection.readyState);
         
-        // Call connectDB and wait for it
+        // Wait for 'connected' event to ensure connection is fully ready
+        const connectionReady = new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Database connection timeout after 10 seconds'));
+          }, 10000);
+          
+          if (mongoose.connection.readyState === 1) {
+            clearTimeout(timeout);
+            resolve();
+            return;
+          }
+          
+          mongoose.connection.once('connected', () => {
+            clearTimeout(timeout);
+            console.log('[DB] Connected event fired');
+            resolve();
+          });
+          
+          mongoose.connection.once('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+        
+        // Call connectDB and wait for connection to be ready
         try {
           await connectDB();
-          console.log('[DB] connectDB() completed, readyState:', mongoose.connection.readyState);
+          console.log('[DB] connectDB() completed, waiting for connected event...');
+          await connectionReady;
+          console.log('[DB] Connection event received, readyState:', mongoose.connection.readyState);
         } catch (connectError) {
           console.error('[DB] connectDB() threw error:', connectError);
           throw connectError;
         }
         
-        // Wait for connection to be fully ready
-        // With bufferCommands: false, we must ensure connection is complete
-        let retries = 20; // Increased retries
-        while (mongoose.connection.readyState !== 1 && retries > 0) {
-          console.log(`[DB] Waiting for connection... readyState: ${mongoose.connection.readyState}, retries: ${retries}`);
-          await new Promise(resolve => setTimeout(resolve, 200));
-          retries--;
-        }
-        
-        // Verify connection is ready
+        // Final verification
         const finalReadyState = mongoose.connection.readyState;
         console.log('[DB] Final readyState:', finalReadyState);
         if (finalReadyState !== 1) {
