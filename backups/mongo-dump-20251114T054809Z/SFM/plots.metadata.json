@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"domainId":{"$numberInt":"1"}},"name":"domainId_1","background":true},{"v":{"$numberInt":"2"},"key":{"name":{"$numberInt":"1"}},"name":"name_1","background":true}],"uuid":"5c450772f0ea47339441f5a497e6c3c4","collectionName":"plots","type":"collection"}

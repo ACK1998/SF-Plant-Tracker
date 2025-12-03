@@ -8,6 +8,17 @@
   background-color: var(--marker-bg-color, inherit) !important;
 }
 
+/* Plant marker emoji styling - ensure visibility */
+.mapboxgl-marker {
+  z-index: 1 !important;
+}
+
+/* Force emoji rendering in markers */
+.mapboxgl-marker svg,
+.mapboxgl-marker canvas {
+  display: block;
+}
+
 /* Ensure mapbox canvas has lower z-index than dropdowns */
 .mapboxgl-canvas {
   z-index: 0 !important;
@@ -30,15 +41,20 @@
   z-index: 0 !important;
 }
 
-/* Ensure dropdowns have maximum z-index */
+/* Ensure dropdowns have maximum z-index - higher than modals */
 [data-dropdown="true"] {
-  z-index: var(--z-dropdown) !important; /* Use 100 instead of 99999 */
+  z-index: 10000 !important; /* Higher than modal (1000) */
 }
 
 /* Force dropdown containers to be above everything */
 .dropdown-container {
-  z-index: var(--z-dropdown) !important; /* Use 100 instead of 99999 */
+  z-index: var(--z-dropdown) !important; /* Use 100 for container */
   position: relative !important;
+}
+
+/* Ensure dropdown portal appears above modals */
+body > [data-dropdown="true"] {
+  z-index: 10000 !important; /* Higher than modal (1000) */
 }
 
 /* Specific marker color classes using data attributes */
@@ -893,7 +909,9 @@ body {
 
 /* Mapbox popup styles */
 .mapbox-popup .mapboxgl-popup-content {
-  background: white;
+  background: white !important;
+  background-color: white !important;
+  opacity: 1 !important;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
   padding: 0;
@@ -907,7 +925,9 @@ body {
 }
 
 .dark .mapbox-popup .mapboxgl-popup-content {
-  background: #1f2937;
+  background: #1f2937 !important;
+  background-color: #1f2937 !important;
+  opacity: 1 !important;
   color: #d1d5db;
   border: 1px solid #374151;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 8px 16px rgba(0, 0, 0, 0.2);
@@ -966,6 +986,8 @@ body {
   padding-bottom: 10px;
   position: relative;
   min-width: 280px;
+  background: transparent;
+  opacity: 1 !important;
 }
 
 .popup-content {
@@ -973,15 +995,18 @@ body {
   position: relative;
   z-index: 1000;
   min-width: 280px;
+  opacity: 1 !important;
 }
 
 /* Ensure popup container has proper spacing */
 .mapboxgl-popup {
   z-index: 1000;
+  opacity: 1 !important;
 }
 
 .mapboxgl-popup-content {
   position: relative;
+  opacity: 1 !important;
 }
 
 .popup-header {

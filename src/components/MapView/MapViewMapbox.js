@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Map, NavigationControl, Source, Layer, Marker, Popup, GeolocateControl } from 'react-map-gl/mapbox';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Map, NavigationControl, Source, Layer, Popup, GeolocateControl, Marker } from 'react-map-gl/mapbox';
 import { Search, Filter, User, Map as MapIcon, Leaf, MapPin, Sprout, X, Navigation, Calendar, User as UserIcon, Ruler, Building, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApi } from '../../contexts/ApiContext';
 import { useMapView } from '../../contexts/MapViewContext';
@@ -17,136 +17,108 @@ import {
   getMapStyle, 
   toMapboxCoordinates 
 } from '../../config/mapbox';
+import { FARM_OVERLAY } from '../../config/farmOverlay';
+import farmLayout from '../../data/farmLayout';
+import { sf4FarmLayout } from '../../data/sf4FarmLayout';
 import * as turf from '@turf/turf';
+import { 
+  filterMarkersByBounds, 
+  buildGeoJson, 
+  debounce,
+  getMarkerColor
+} from '../../utils/mapboxUtils';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Utility function to ensure marker colors are applied correctly
-const applyMarkerColors = () => {
-  // Apply colors to legend dots
-  const legendDots = document.querySelectorAll('.marker-legend-dot');
-  legendDots.forEach(dot => {
-    if (dot.classList.contains('domain')) {
-      dot.style.backgroundColor = '#7C3AED';
-    } else if (dot.classList.contains('plot')) {
-      dot.style.backgroundColor = '#2563EB';
-    } else if (dot.classList.contains('plant')) {
-      dot.style.backgroundColor = '#059669';
-    } else if (dot.classList.contains('boundary')) {
-      dot.style.backgroundColor = '#9333EA';
-    }
-  });
+// Removed applyMarkerColors - using Mapbox layers instead
 
-  // Apply colors to map markers
-  const mapMarkers = document.querySelectorAll('.marker-circle');
-  mapMarkers.forEach(marker => {
-    const markerType = marker.getAttribute('data-marker-type');
-    const markerColor = marker.getAttribute('data-marker-color');
+const PLOT_FOCUS_ZOOM = 18; // Zoom level equivalent to ~8x magnification for plots
+
+const normalizeIdentifier = (value) => {
+  if (value === null || value === undefined) return '';
+  return value.toString().trim().replace(/[^a-z0-9]/gi, '').toLowerCase();
+};
+
+const collectIdentifiers = (...rawValues) =>
+  rawValues
+    .map((value) => normalizeIdentifier(value))
+    .filter((value, index, arr) => value && arr.indexOf(value) === index);
+
+const matchFarmLayoutEntity = (item = {}, type, domain = null) => {
+  if (type === 'plot') {
+    const searchKeys = collectIdentifiers(
+      item.code,
+      item.plotNumber,
+      item.name,
+      item.externalId
+    );
+
+    if (!searchKeys.length) return null;
+
+    // Determine which farm layout to search based on domain
+    let plotsToSearch = farmLayout.plots;
     
-    if (markerType === 'domain') {
-      marker.style.backgroundColor = '#7C3AED';
-    } else if (markerType === 'plot') {
-      marker.style.backgroundColor = '#2563EB';
-    } else if (markerType === 'plant') {
-      marker.style.backgroundColor = '#059669';
-    }
-    
-    // Also update the label below the marker
-    const markerContainer = marker.closest('.flex.flex-col.items-center');
-    if (markerContainer) {
-      const label = markerContainer.querySelector('.marker-label');
-      if (label && markerColor) {
-        label.style.backgroundColor = markerColor;
-        label.style.color = 'white';
-        label.style.opacity = '0.9';
-        label.style.setProperty('--marker-color', markerColor);
-        
-        // Add the specific marker type class
-        label.className = label.className.replace(/marker-label-\w+/g, `marker-label-${markerType}`);
+    // If domain is SF4, search in SF4 plots first
+    if (domain) {
+      const domainName = (domain.name || '').toLowerCase();
+      const domainKey = (domain.key || '').toLowerCase();
+      if (domainName === 'sf4' || domainKey === 'sf4' || 
+          domainName.includes('sf4') || domainKey.includes('sf4')) {
+        plotsToSearch = sf4FarmLayout.plots;
       }
     }
-  });
+
+    return plotsToSearch.find((candidate) => {
+      const candidateKeys = collectIdentifiers(
+        candidate.code,
+        candidate.label,
+        ...(candidate.aliases || [])
+      );
+      return candidateKeys.some((key) => searchKeys.includes(key));
+    });
+  }
+
+  if (type === 'domain') {
+    const searchKeys = collectIdentifiers(item.slug, item.key, item.name, item.label);
+    if (!searchKeys.length) return null;
+
+    return farmLayout.domains.find((candidate) => {
+      const candidateKeys = collectIdentifiers(
+        candidate.key,
+        candidate.label,
+        candidate.name,
+        ...(candidate.aliases || [])
+      );
+      return candidateKeys.some((key) => searchKeys.includes(key));
+    });
+  }
+
+  return null;
 };
 
-// Custom marker component
-const CustomMarker = ({ item, type, onClick, children }) => {
-  // Define colors directly to ensure they work
-  const colorMap = {
-    domain: '#7C3AED',    // Rich purple shade
-    plot: '#2563EB',      // Deep blue shade
-    plant: '#059669'      // Rich green shade
-  };
-  const color = colorMap[type] || '#666';
-  
-  const sizes = {
-    small: { width: 30, height: 30, fontSize: 12 },
-    medium: { width: 40, height: 40, fontSize: 16 },
-    large: { width: 50, height: 50, fontSize: 20 }
-  };
-  
-  const size = type === 'domain' ? 'large' : type === 'plot' ? 'medium' : 'small';
-  const { width, height, fontSize } = sizes[size];
-  
-  const emojis = {
-    domain: '🏢',
-    plot: '🏞️',
-    plant: '🌱'
-  };
-  
-  return (
-    <Marker
-      longitude={item.longitude}
-      latitude={item.latitude}
-      anchor="bottom"
-      onClick={onClick}
-    >
-      <div className="flex flex-col items-center">
-        <div
-          style={{
-            '--marker-color': color,
-            backgroundColor: color,
-            border: '3px solid white',
-            borderRadius: '50%',
-            width: `${width}px`,
-            height: `${height}px`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: `${fontSize}px`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            color: 'white',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-          className={`marker-circle marker-${type} mapbox-marker-${type}`}
-          data-marker-type={type}
-          data-marker-color={color}
-        >
-          {type === 'plant' 
-            ? findPlantEmoji(item.type, item.category) 
-            : (item.image || emojis[type])
-          }
-        </div>
-        {/* Name label below marker */}
-        <div 
-          className={`mt-1 px-2 py-1 text-xs rounded shadow-lg whitespace-nowrap max-w-32 marker-label marker-label-${type}`}
-          style={{
-            fontSize: type === 'domain' ? '11px' : type === 'plot' ? '10px' : '9px',
-            fontWeight: '500',
-            backgroundColor: color,
-            color: 'white',
-            opacity: 0.9,
-            '--marker-color': color
-          }}
-        >
-          {item.name || `${type.charAt(0).toUpperCase() + type.slice(1)} ${item._id?.slice(-4) || ''}`}
-        </div>
-      </div>
-      {children}
-    </Marker>
-  );
+const findFallbackLocation = (item = {}, type) => {
+  if (item.latitude && item.longitude) {
+    return [item.longitude, item.latitude];
+  }
+
+  const match = matchFarmLayoutEntity(item, type);
+  if (match?.centroid) {
+    return match.centroid;
+  }
+
+  return null;
 };
 
-function MapViewMapbox({ user, selectedState }) {
+const getPolygonTopAnchor = (polygonLngLat) => {
+  if (!polygonLngLat || polygonLngLat.length < 2) return null;
+  const [topLeft, topRight] = polygonLngLat;
+  const lng = (topLeft[0] + topRight[0]) / 2;
+  const lat = (topLeft[1] + topRight[1]) / 2;
+  return [lng, lat];
+};
+
+// CustomMarker component removed - using GeoJSON sources instead for better performance
+
+const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState }) {
   const { mapViewPlants } = useMapView();
   const { 
     plots, 
@@ -159,7 +131,15 @@ function MapViewMapbox({ user, selectedState }) {
   const [searchParams] = useSearchParams();
 
   const mapRef = useRef();
+  const mapInstanceRef = useRef(null);
   const filteringInProgress = useRef(false);
+  
+  // Viewport-based lazy loading state
+  const [visibleMarkers, setVisibleMarkers] = useState({
+    domains: [],
+    plots: [],
+    plants: []
+  });
   
   // Map state
   const [viewState, setViewState] = useState({
@@ -188,14 +168,7 @@ function MapViewMapbox({ user, selectedState }) {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [layersExpanded, setLayersExpanded] = useState(false);
 
-  // Apply marker colors when component mounts and updates
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      applyMarkerColors();
-    }, 100); // Small delay to ensure DOM is ready
-    
-    return () => clearTimeout(timer);
-  }, [mapViewPlants, plots, domains]);
+  // Removed applyMarkerColors useEffect - using Mapbox layers
 
   // Initialize filters from URL parameters
   useEffect(() => {
@@ -206,8 +179,6 @@ function MapViewMapbox({ user, selectedState }) {
       const plotParam = searchParams.get('plot');
       const categoryParam = searchParams.get('category');
       const varietyParam = searchParams.get('variety');
-      
-      console.log('MapView: URL params:', { healthParam, typeParam, domainParam, plotParam, categoryParam, varietyParam });
       
       if (healthParam) setFilterStatus(healthParam);
       if (typeParam) setFilterType(typeParam);
@@ -256,19 +227,9 @@ function MapViewMapbox({ user, selectedState }) {
   // Map ready state for conditional rendering
   const [mapReady, setMapReady] = useState(false);
 
-  // Component mount logging
-  useEffect(() => {
-    console.log('MapViewMapbox - Component mounted');
-  }, []);
-
-  // Debug logging for raw data
+  // Check for missing coordinates (warnings only)
   useEffect(() => {
     if (!loading && !error) {
-      console.log("Domains Raw:", domains);
-      console.log("Plots Raw:", plots);
-      console.log("Plants Raw:", mapViewPlants);
-      
-      // Check for missing coordinates and plot sizes
       domains?.forEach(domain => {
         if (!domain.latitude || !domain.longitude) {
           console.warn("Skipping domain, missing lat/lng:", domain);
@@ -278,8 +239,6 @@ function MapViewMapbox({ user, selectedState }) {
       plots?.forEach(plot => {
         if (!plot.latitude || !plot.longitude) {
           console.warn("Skipping plot, missing lat/lng:", plot);
-        } else {
-          console.log(`Plot "${plot.name}": lat=${plot.latitude}, lng=${plot.longitude}, size=${plot.size || 'undefined'}`);
         }
       });
       
@@ -318,12 +277,6 @@ function MapViewMapbox({ user, selectedState }) {
       const totalMarkers = filteredDomains.length + filteredPlots.length + filteredPlants.length;
       if (totalMarkers === 0) {
         console.warn("No markers rendered, check API data or filters");
-      } else {
-        console.log(`Rendering ${totalMarkers} markers:`, {
-          domains: filteredDomains.length,
-          plots: filteredPlots.length,
-          plants: filteredPlants.length
-        });
       }
     }
   }, [filteredDomains, filteredPlots, filteredPlants, mapReady, loading]);
@@ -348,7 +301,6 @@ function MapViewMapbox({ user, selectedState }) {
     // Check if plot center is within domain boundary
     const isWithin = turf.booleanPointInPolygon(plotPoint, domainData.polygon);
     
-    console.log(`Plot "${plot.name}" within domain "${domain.name}": ${isWithin}`);
     return isWithin;
   };
 
@@ -360,8 +312,6 @@ function MapViewMapbox({ user, selectedState }) {
     
     const distance = calculateDistance(plot.latitude, plot.longitude, plant.latitude, plant.longitude);
     const plotRadius = plot.size ? Math.sqrt(plot.size / Math.PI) : 0;
-    
-    console.log(`Plant "${plant.name}" distance from plot "${plot.name}": ${distance.toFixed(1)}m, Plot radius: ${plotRadius.toFixed(1)}m`);
     
     return plotRadius > 0 && distance <= plotRadius;
   };
@@ -874,7 +824,6 @@ function MapViewMapbox({ user, selectedState }) {
     // Handle domain and plot filtering with proper hierarchy
     if (filterDomain !== 'all' && filterPlot !== 'all') {
       // Both domain and plot are selected - plot takes precedence
-      console.log('Both domain and plot filters active - plot takes precedence');
       
       // Show only the selected domain
       filteredDomainsData = filteredDomainsData.filter(d => {
@@ -898,7 +847,6 @@ function MapViewMapbox({ user, selectedState }) {
       
     } else if (filterPlot !== 'all') {
       // Only plot is selected
-      console.log('Only plot filter active');
       
       // Show only the selected plot
       filteredPlotsData = filteredPlotsData.filter(p => {
@@ -926,7 +874,6 @@ function MapViewMapbox({ user, selectedState }) {
       
     } else if (filterDomain !== 'all') {
       // Only domain is selected
-      console.log('Only domain filter active');
       
       // Show only the selected domain
       filteredDomainsData = filteredDomainsData.filter(d => {
@@ -943,25 +890,9 @@ function MapViewMapbox({ user, selectedState }) {
       // Show only plants within plots of the selected domain
       const domainPlotIds = filteredPlotsData.map(plot => plot._id);
       
-      console.log('Domain filtering debug:', {
-        selectedDomain: filterDomain,
-        domainPlotIds: domainPlotIds,
-        totalPlantsBeforeFilter: filteredPlantsData.length
-      });
-      
       filteredPlantsData = filteredPlantsData.filter(p => {
         const plantPlotId = p.plotId?._id || p.plotId;
-        const isIncluded = domainPlotIds.includes(String(plantPlotId));
-        
-        if (!isIncluded) {
-          console.log(`Plant "${p.name}" excluded: plotId=${plantPlotId}, not in domain plots`);
-        }
-        
-        return isIncluded;
-      });
-      
-      console.log('Domain filtering result:', {
-        plantsAfterFilter: filteredPlantsData.length
+        return domainPlotIds.includes(String(plantPlotId));
       });
     }
 
@@ -994,34 +925,6 @@ function MapViewMapbox({ user, selectedState }) {
       );
     }
 
-    // Calculate hasActiveFilters inside the useEffect to avoid dependency issues
-    const currentHasActiveFilters = searchTerm || 
-      filterOrganization !== 'all' ||
-      filterType !== 'all' || 
-      filterPlot !== 'all' || 
-      filterDomain !== 'all' || 
-      filterCategory !== 'all' || 
-      filterVariety !== 'all' ||
-      filterStatus !== 'all';
-
-    console.log('MapViewMapbox - Filtered Data:', {
-      filteredDomains: filteredDomainsData.length,
-      filteredPlots: filteredPlotsData.length,
-      filteredPlants: filteredPlantsData.length,
-      userRole: user?.role,
-      hasActiveFilters: currentHasActiveFilters,
-      activeFilters: {
-        searchTerm,
-        filterOrganization,
-        filterType,
-        filterPlot,
-        filterDomain,
-        filterCategory,
-        filterVariety,
-        filterStatus
-      }
-    });
-
     // Log if no markers are returned
     if (filteredDomainsData.length === 0 && filteredPlotsData.length === 0 && filteredPlantsData.length === 0) {
       console.warn('MapViewMapbox - No markers found after filtering:', {
@@ -1042,27 +945,36 @@ function MapViewMapbox({ user, selectedState }) {
       });
     }
 
-    // Additional debugging for domain and plot filtering
-    if (filterDomain !== 'all' || filterPlot !== 'all') {
-      console.log('Domain/Plot filtering summary:', {
-        selectedDomain: filterDomain,
-        selectedPlot: filterPlot,
-        domainsInFilter: filteredDomainsData.length,
-        plotsInFilter: filteredPlotsData.length,
-        plantsInFilter: filteredPlantsData.length,
-        plotIds: filteredPlotsData.map(p => p._id),
-        plantPlotIds: filteredPlantsData.map(p => p.plotId?._id || p.plotId),
-        domainNames: filteredDomainsData.map(d => d.name),
-        plotNames: filteredPlotsData.map(p => p.name)
-      });
-    }
-
       setFilteredDomains(filteredDomainsData);
       setFilteredPlots(filteredPlotsData);
       setFilteredPlants(filteredPlantsData);
 
-      // Center map to selected domain when domain filter is applied
-      if (filterDomain !== 'all' && filteredDomainsData.length > 0) {
+      // Center map to selected plot when plot filter is applied
+      if (filterPlot !== 'all' && filteredPlotsData.length > 0) {
+        const selectedPlot = filteredPlotsData[0];
+        // Try to find coordinates for the plot
+        const plotDomainId = selectedPlot.domainId?._id || selectedPlot.domainId;
+        const plotDomain = filteredDomainsData.find(d => d._id === plotDomainId);
+        const layoutPlot = matchFarmLayoutEntity(selectedPlot, 'plot', plotDomain);
+        const polygonCoords = layoutPlot?.polygonLngLat;
+        const topAnchorCoords = polygonCoords ? getPolygonTopAnchor(polygonCoords) : null;
+        const fallbackCoords = layoutPlot?.centroid || findFallbackLocation(selectedPlot, 'plot');
+        const hasCoordinates = selectedPlot.latitude && selectedPlot.longitude;
+        const plotCoords = topAnchorCoords || fallbackCoords || (hasCoordinates ? [selectedPlot.longitude, selectedPlot.latitude] : null);
+        
+        if (plotCoords) {
+          // Zoom to plot with high zoom level to show markers and labels
+          setViewState(prev => ({
+            ...prev,
+            longitude: plotCoords[0],
+            latitude: plotCoords[1],
+            zoom: 17, // High zoom to ensure markers and labels are visible
+            transitionDuration: MAPBOX_CONFIG.flyToDuration
+          }));
+        }
+      }
+      // Center map to selected domain when domain filter is applied (but not if plot is also selected)
+      else if (filterDomain !== 'all' && filteredDomainsData.length > 0) {
         const selectedDomain = filteredDomainsData[0];
         if (selectedDomain.latitude && selectedDomain.longitude) {
           // Calculate appropriate zoom level based on the number of plots in the domain
@@ -1100,6 +1012,141 @@ function MapViewMapbox({ user, selectedState }) {
     searchTerm, filterOrganization, filterType, filterPlot, filterDomain, filterCategory, filterVariety, filterStatus, urlParamsInitialized
   ]);
 
+  // Viewport-based lazy loading handler
+  const updateVisibleMarkers = useCallback((map) => {
+    // Disable viewport filtering when filtering by a specific plot to ensure all markers show
+    if (filterPlot !== 'all') {
+      setVisibleMarkers({
+        domains: filteredDomains,
+        plots: filteredPlots,
+        plants: filteredPlants
+      });
+      return;
+    }
+
+    if (!map) {
+      // If no map, show all markers (fallback for initial render)
+      setVisibleMarkers({
+        domains: filteredDomains,
+        plots: filteredPlots,
+        plants: filteredPlants
+      });
+      return;
+    }
+
+    if (!map.isStyleLoaded()) {
+      // If style not loaded, show all markers temporarily
+      setVisibleMarkers({
+        domains: filteredDomains,
+        plots: filteredPlots,
+        plants: filteredPlants
+      });
+      return;
+    }
+    
+    try {
+      const bounds = map.getBounds();
+      if (!bounds) {
+        // If no bounds, show all markers
+        setVisibleMarkers({
+          domains: filteredDomains,
+          plots: filteredPlots,
+          plants: filteredPlants
+        });
+        return;
+      }
+
+      // Use bounds directly - filterMarkersByBounds already adds a buffer
+      const visibleDomains = filterMarkersByBounds(filteredDomains, bounds);
+      const visiblePlots = filterMarkersByBounds(filteredPlots, bounds);
+      const visiblePlants = filterMarkersByBounds(filteredPlants, bounds);
+
+      setVisibleMarkers({
+        domains: visibleDomains,
+        plots: visiblePlots,
+        plants: visiblePlants
+      });
+    } catch (error) {
+      console.error('Error updating visible markers:', error);
+      // Fallback to all markers on error
+      setVisibleMarkers({
+        domains: filteredDomains,
+        plots: filteredPlots,
+        plants: filteredPlants
+      });
+    }
+  }, [filteredDomains, filteredPlots, filteredPlants, filterPlot]);
+
+  // Update visible markers when filtered data changes
+  useEffect(() => {
+    if (!loading) {
+      updateVisibleMarkers(mapInstanceRef.current);
+    }
+  }, [filteredDomains, filteredPlots, filteredPlants, loading, updateVisibleMarkers]);
+
+  // Debug: Log data flow - ALWAYS log, not just when filtering
+  useEffect(() => {
+    console.log('=== DATA FLOW DEBUG ===', {
+      loading,
+      error,
+      rawData: {
+        plotsCount: plots.length,
+        mapViewPlantsCount: mapViewPlants.length,
+        domainsCount: domains.length
+      },
+      filteredData: {
+        filteredPlotsCount: filteredPlots.length,
+        filteredPlantsCount: filteredPlants.length,
+        filteredDomainsCount: filteredDomains.length
+      },
+      visibility: {
+        showPlots,
+        showPlants,
+        showDomains
+      },
+      filters: {
+        filterPlot,
+        filterDomain,
+        filterOrganization,
+        filterType,
+        filterCategory,
+        filterVariety,
+        filterStatus,
+        searchTerm
+      },
+      samplePlant: mapViewPlants[0],
+      samplePlot: plots[0]
+    });
+    
+    if (filterPlot !== 'all' && filteredPlots.length > 0) {
+      console.log('Filtered plot details:', filteredPlots[0]);
+    }
+    
+    if (filteredPlants.length > 0) {
+      console.log('Filtered plants sample:', filteredPlants.slice(0, 3));
+    } else if (mapViewPlants.length > 0) {
+      console.warn('⚠️ Plants exist but none are in filteredPlants!', {
+        totalPlants: mapViewPlants.length,
+        samplePlant: mapViewPlants[0]
+      });
+    }
+  }, [plots, mapViewPlants, filteredPlots, filteredPlants, filterPlot, showPlots, showPlants, loading, error, domains, filteredDomains, showDomains, filterDomain, filterOrganization, filterType, filterCategory, filterVariety, filterStatus, searchTerm]);
+
+
+  // Debounced viewport update handler
+  const debouncedUpdateVisibleMarkers = useMemo(
+    () => debounce((map) => updateVisibleMarkers(map), 250),
+    [updateVisibleMarkers]
+  );
+
+  // Handle map moveend to update visible markers
+  const handleMapMoveEnd = useCallback((evt) => {
+    setViewState(evt.viewState);
+    if (mapInstanceRef.current) {
+      debouncedUpdateVisibleMarkers(mapInstanceRef.current);
+    }
+  }, [debouncedUpdateVisibleMarkers]);
+
   // Event handlers
   const handleMarkerClick = useCallback((item, type) => {
     // Fly to marker location with appropriate zoom level
@@ -1110,7 +1157,7 @@ function MapViewMapbox({ user, selectedState }) {
         zoom = 13;
         break;
       case 'plot':
-        zoom = 15;
+        zoom = Math.max(PLOT_FOCUS_ZOOM, 15);
         break;
       case 'plant':
         zoom = 17;
@@ -1131,6 +1178,27 @@ function MapViewMapbox({ user, selectedState }) {
     setSelectedItem({ type, data: item });
     setPopupLocation([item.longitude, item.latitude]);
   }, []);
+
+  // Handle cluster click - zoom into cluster
+  // Cluster click handler removed - no longer using clustered markers
+
+  // Handle marker/point click
+  const handlePointClick = useCallback((event, map) => {
+    const feature = event.features?.[0];
+    if (!feature || !feature.properties) return;
+
+    // No clusters anymore - directly handle individual marker click
+    const properties = feature.properties;
+    const type = properties.type;
+    const item = {
+      ...properties,
+      _id: properties.id,
+      longitude: feature.geometry.coordinates[0],
+      latitude: feature.geometry.coordinates[1]
+    };
+
+    handleMarkerClick(item, type);
+  }, [handleMarkerClick]);
 
   // Handle popup close
   const handlePopupClose = useCallback(() => {
@@ -1246,13 +1314,6 @@ function MapViewMapbox({ user, selectedState }) {
   const generateDomainPolygon = (domain) => {
     // Use the actual domain size from the domain data
     const domainSize = domain.size || 0;
-    
-    console.log(`Generating polygon for domain "${domain.name}":`, {
-      domainId: domain._id,
-      domainSize: domainSize,
-      domainSizeSqFt: domainSize,
-      hasSize: domainSize > 0
-    });
 
     if (!domain.latitude || !domain.longitude) {
       console.warn(`Domain "${domain.name}" has no coordinates`);
@@ -1295,7 +1356,6 @@ function MapViewMapbox({ user, selectedState }) {
       }
     };
 
-    console.log(`Successfully generated square polygon for domain "${domain.name}" with side length ${sideLength.toFixed(1)}m (${sideLengthDegrees.toFixed(6)}°)`);
     return { 
       polygon: squarePolygon, 
       radius: sideLength / 2, // Half the side length for compatibility
@@ -1304,65 +1364,30 @@ function MapViewMapbox({ user, selectedState }) {
     };
   };
 
-  // Generate plot boundaries as rectangles
-  const generatePlotBoundary = (plot) => {
-    const plotSize = plot.size || 0;
-    
-    if (!plot.latitude || !plot.longitude) {
+  // Generate plot boundaries from plot size (fallback when not in farm layout)
+  const generatePlotBoundaryFromSize = (plot) => {
+    if (!plot.latitude || !plot.longitude || !plot.size) {
       return null;
     }
-
-    if (plotSize <= 0) {
-      // Default 50m x 50m square for plots without size
-      const defaultSideLength = 50 / 111000; // 50 meters in degrees
-      const halfSide = defaultSideLength / 2;
-      
-      return {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[
-            [plot.longitude - halfSide, plot.latitude - halfSide],
-            [plot.longitude + halfSide, plot.latitude - halfSide],
-            [plot.longitude + halfSide, plot.latitude + halfSide],
-            [plot.longitude - halfSide, plot.latitude + halfSide],
-            [plot.longitude - halfSide, plot.latitude - halfSide]
-          ]]
-        },
-        properties: {
-          name: plot.name,
-          size: 2500, // 50m x 50m = 2500 sq m
-          isDefault: true
-        }
-      };
-    }
-
-    // Convert square meters to degrees
-    const sideLength = Math.sqrt(plotSize);
-    const sideLengthDegrees = sideLength / 111000;
+    
+    // Plot size is stored in sqm in DB
+    const areaSqM = plot.size;
+    const sideLengthM = Math.sqrt(areaSqM);
+    const sideLengthDegrees = sideLengthM / 111000;
     const halfSide = sideLengthDegrees / 2;
-
-    return {
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [[
-          [plot.longitude - halfSide, plot.latitude - halfSide],
-          [plot.longitude + halfSide, plot.latitude - halfSide],
-          [plot.longitude + halfSide, plot.latitude + halfSide],
-          [plot.longitude - halfSide, plot.latitude + halfSide],
-          [plot.longitude - halfSide, plot.latitude - halfSide]
-        ]]
-      },
-      properties: {
-        name: plot.name,
-        size: plotSize,
-        isDefault: false
-      }
-    };
+    
+    // Adjust for longitude (longitude spacing varies with latitude)
+    const latFactor = Math.cos(plot.latitude * Math.PI / 180);
+    const halfSideLng = halfSide / latFactor;
+    
+    return [
+      [plot.longitude - halfSideLng, plot.latitude - halfSide],
+      [plot.longitude + halfSideLng, plot.latitude - halfSide],
+      [plot.longitude + halfSideLng, plot.latitude + halfSide],
+      [plot.longitude - halfSideLng, plot.latitude + halfSide],
+      [plot.longitude - halfSideLng, plot.latitude - halfSide], // Close ring
+    ];
   };
-
-
 
   if (loading) {
     return (
@@ -1699,23 +1724,60 @@ function MapViewMapbox({ user, selectedState }) {
         <div className="h-96 md:h-[600px] lg:h-[700px] min-h-[384px] relative bg-gray-100 dark:bg-gray-700" style={{ zIndex: 0 }}>
           {mapReady ? (
             <Map
-              ref={mapRef}
+              ref={(ref) => {
+                mapRef.current = ref;
+                if (ref && ref.getMap) {
+                  mapInstanceRef.current = ref.getMap();
+                }
+              }}
               {...viewState}
               onMove={evt => setViewState(evt.viewState)}
-              onClick={handleMapClick}
+              onMoveEnd={handleMapMoveEnd}
+              onClick={(event) => {
+                handleMapClick(event);
+                // Handle GeoJSON layer clicks
+                if (event.features && event.features.length > 0 && mapInstanceRef.current) {
+                  handlePointClick(event, mapInstanceRef.current);
+                }
+              }}
+              interactiveLayerIds={['domains-layer', 'plots-layer', 'plants-circle', 'plants-layer', 'domains-labels', 'plots-labels', 'plants-labels']}
               style={{ width: '100%', height: '100%', zIndex: 0 }}
               mapStyle={getMapStyle(mapStyle)}
               mapboxAccessToken={MAPBOX_CONFIG.accessToken}
               onLoad={() => {
-                // Apply marker colors after map loads
-                setTimeout(() => {
-                  applyMarkerColors();
-                }, 200);
+                // Map is loaded, get the map instance from ref
+                if (mapRef.current && mapRef.current.getMap) {
+                  const map = mapRef.current.getMap();
+                  mapInstanceRef.current = map;
+                  
+                  // Update visible markers on initial load
+                  setTimeout(() => {
+                    updateVisibleMarkers(map);
+                  }, 500);
+                  
+                  // Removed manual source refresh - Source component handles updates
+                }
               }}
               onError={(e) => {}}
             >
             <NavigationControl position="top-left" />
             <GeolocateControl position="top-left" />
+
+            <Source
+              id="farm-overlay"
+              type="image"
+              image={FARM_OVERLAY.imageUrl}
+              coordinates={FARM_OVERLAY.coordinates}
+            >
+              <Layer
+                id="farm-overlay-layer"
+                type="raster"
+                paint={{
+                  'raster-opacity': 0.85,
+                  'raster-fade-duration': 0,
+                }}
+              />
+            </Source>
             
             {/* Popup for item details */}
             {selectedItem && popupLocation && (
@@ -1761,126 +1823,473 @@ function MapViewMapbox({ user, selectedState }) {
               />
             </Source>
 
-            {/* Domain Polygons with Total Plot Area Radius */}
-            {showDomains && filteredDomains
-              .filter(domain => domain.latitude && domain.longitude)
-              .map(domain => {
-                const domainData = generateDomainPolygon(domain);
-                
-                return (
-                  <React.Fragment key={`domain-${domain._id}`}>
-                    {showBoundaries && domainData?.polygon && (
-                      <Source
-                        id={`domain-polygon-${domain._id}`}
-                        type="geojson"
-                        data={domainData.polygon}
-                      >
-                        <Layer
-                          id={`domain-polygon-layer-${domain._id}`}
-                          type="fill"
-                          paint={{
-                            'fill-color': '#7C3AED',
-                            'fill-opacity': 0.1,
-                            'fill-outline-color': '#7C3AED',
-                            'fill-outline-width': 2
-                          }}
-                        />
-                      </Source>
-                    )}
-                    <CustomMarker
-                      item={domain}
-                      type="domain"
-                      onClick={() => handleMarkerClick(domain, 'domain')}
-                    />
-                  </React.Fragment>
-                );
-              })}
+            {/* Domain Polygons and Markers */}
+            {showDomains && filteredDomains.map(domain => {
+              const domainData = domain.latitude && domain.longitude ? generateDomainPolygon(domain) : null;
+              const coords = findFallbackLocation(domain, 'domain');
 
-            {/* Plot Markers with actual plot area radius - only within domain boundaries */}
-            {showPlots && filteredPlots
-              .filter(plot => plot.latitude && plot.longitude)
-              .map(plot => {
-                // Find the domain this plot belongs to
-                const plotDomainId = plot.domainId?._id || plot.domainId;
-                const domain = filteredDomains.find(d => d._id === plotDomainId);
-                
-                // Check if plot is within domain boundary
-                const withinDomain = domain ? isPlotWithinDomain(plot, domain) : true;
-                
-                if (!withinDomain) {
-                  console.warn(`Plot "${plot.name}" is outside domain "${domain?.name}" boundary - skipping`);
-                  return null;
-                }
-                
-                // Generate plot boundary as rectangle
-                const plotBoundary = generatePlotBoundary(plot);
-                
-                // Debug logging for plot boundary calculation
-                console.log(`Plot "${plot.name}": Area=${plot.size || 0} sq ft, HasBoundary=${!!plotBoundary}, WithinDomain=${withinDomain}`);
-                
-                return (
-                  <React.Fragment key={`plot-${plot._id}`}>
-                    {showBoundaries && plotBoundary && (
-                      <Source
-                        id={`plot-boundary-${plot._id}`}
-                        type="geojson"
-                        data={plotBoundary}
-                      >
-                        <Layer
-                          id={`plot-boundary-layer-${plot._id}`}
-                          type="fill"
-                          paint={{
-                            'fill-color': plotBoundary.properties.isDefault ? '#6B7280' : '#2563EB',
-                            'fill-opacity': plotBoundary.properties.isDefault ? 0.05 : 0.08,
-                            'fill-outline-color': plotBoundary.properties.isDefault ? '#6B7280' : '#2563EB',
-                            'fill-outline-width': plotBoundary.properties.isDefault ? 1 : 2,
-                            'fill-outline-dasharray': plotBoundary.properties.isDefault ? [5, 5] : [0]
-                          }}
-                        />
-                      </Source>
-                    )}
-                    <CustomMarker
-                      item={plot}
-                      type="plot"
-                      onClick={() => handleMarkerClick(plot, 'plot')}
-                    />
-                  </React.Fragment>
-                );
-              })}
+              if (!coords) {
+                return null;
+              }
+              
+              return (
+                <React.Fragment key={`domain-${domain._id}`}>
+                  {showBoundaries && domainData?.polygon && (
+                    <Source
+                      id={`domain-polygon-${domain._id}`}
+                      type="geojson"
+                      data={domainData.polygon}
+                    >
+                      <Layer
+                        id={`domain-polygon-layer-${domain._id}`}
+                        type="fill"
+                        paint={{
+                          'fill-color': '#7C3AED',
+                          'fill-opacity': 0.1,
+                          'fill-outline-color': '#7C3AED',
+                          'fill-outline-width': 2
+                        }}
+                      />
+                    </Source>
+                  )}
+                </React.Fragment>
+              );
+            })}
 
-            {/* Plant Markers - only within plot boundaries */}
-            {showPlants && filteredPlants
-              .filter(plant => plant.latitude && plant.longitude)
-              .map(plant => {
-                // Find the plot this plant belongs to
-                const plantPlotId = plant.plotId?._id || plant.plotId;
-                const plot = filteredPlots.find(p => p._id === plantPlotId);
-                
-                // If no plot found in filtered plots, skip this plant
-                if (!plot) {
-                  console.warn(`Plant "${plant.name}" has plotId ${plantPlotId} but plot not found in filtered plots`);
-                  return null;
-                }
-                
-                // Check if plant is within plot boundary
-                const withinPlot = isPlantWithinPlot(plant, plot);
-                
-                if (!withinPlot) {
-                  console.warn(`Plant "${plant.name}" is outside plot "${plot.name}" boundary - skipping`);
-                  return null;
-                }
-                
-                console.log(`Plant "${plant.name}": WithinPlot=${withinPlot}`);
-                
-                return (
-                  <CustomMarker
-                    key={`plant-${plant._id}`}
-                    item={plant}
-                    type="plant"
-                    onClick={() => handleMarkerClick(plant, 'plant')}
+            {/* Domain Markers - GeoJSON Source with Symbol Layer */}
+            {(() => {
+              if (!showDomains) return null;
+              
+              // Use filteredDomains when filtering by plot to ensure domain shows
+              const domainsToUse = filterPlot !== 'all' ? filteredDomains : visibleMarkers.domains;
+              
+              const domainMarkers = domainsToUse.map(domain => {
+                const coords = findFallbackLocation(domain, 'domain');
+                if (!coords) return null;
+                return {
+                  ...domain,
+                  longitude: domain.longitude || coords[0],
+                  latitude: domain.latitude || coords[1],
+                };
+              }).filter(Boolean);
+
+              // Add emojis to domain markers for display
+              const domainMarkersWithEmoji = domainMarkers.map(domain => ({
+                ...domain,
+                displayName: `🏛️ ${domain.name}`
+              }));
+
+              const domainGeoJson = buildGeoJson(domainMarkersWithEmoji, 'domain');
+              
+              if (domainGeoJson.features.length === 0) return null;
+              
+              // Use key to force source update when filtering
+              const domainSourceKey = `domains-source-${filterPlot}-${filterDomain}-${domainMarkers.length}`;
+              
+              return (
+                <Source
+                  key={domainSourceKey}
+                  id="domains-source"
+                  type="geojson"
+                  data={domainGeoJson}
+                >
+                  <Layer
+                    id="domains-layer"
+                    type="circle"
+                    paint={{
+                      'circle-radius': 20,
+                      'circle-color': getMarkerColor('domain'),
+                      'circle-stroke-width': 3,
+                      'circle-stroke-color': '#ffffff',
+                    }}
                   />
-                );
-              })}
+                  <Layer
+                    id="domains-labels"
+                    type="symbol"
+                    minzoom={11}
+                    layout={{
+                      'text-field': ['get', 'displayName'],
+                      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                      'text-size': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        11, 14,
+                        13, 16,
+                        15, 18
+                      ],
+                      'text-offset': [0, 1.8],
+                      'text-anchor': 'top',
+                      'text-allow-overlap': true,
+                      'text-ignore-placement': false
+                    }}
+                    paint={{
+                      'text-color': '#000000',
+                      'text-halo-color': '#ffffff',
+                      'text-halo-width': 4,
+                      'text-halo-blur': 0
+                    }}
+                  />
+                </Source>
+              );
+            })()}
+
+            {/* Plot Boundaries */}
+            {showPlots && filteredPlots.map(plot => {
+              const plotDomainId = plot.domainId?._id || plot.domainId;
+              const domain = filteredDomains.find(d => d._id === plotDomainId);
+              const hasCoordinates = plot.latitude && plot.longitude;
+              const withinDomain = domain && hasCoordinates ? isPlotWithinDomain(plot, domain) : true;
+
+              if (!withinDomain) {
+                return null;
+              }
+
+              const layoutPlot = matchFarmLayoutEntity(plot, 'plot', domain);
+              const polygonCoords = layoutPlot?.polygonLngLat || generatePlotBoundaryFromSize(plot);
+              const plotBoundary = polygonCoords
+                ? {
+                    type: 'Feature',
+                    geometry: {
+                      type: 'Polygon',
+                      coordinates: [polygonCoords],
+                    },
+                    properties: {},
+                  }
+                : null;
+
+              return (
+                <React.Fragment key={`plot-boundary-${plot._id}`}>
+                  {showBoundaries && plotBoundary && (
+                    <Source
+                      id={`plot-boundary-${plot._id}`}
+                      type="geojson"
+                      data={plotBoundary}
+                    >
+                      <Layer
+                        id={`plot-boundary-fill-${plot._id}`}
+                        type="fill"
+                        paint={{
+                          'fill-color': '#ddecff',
+                          'fill-opacity': 0.18,
+                        }}
+                      />
+                      <Layer
+                        id={`plot-boundary-line-${plot._id}`}
+                        type="line"
+                        paint={{
+                          'line-color': '#1e40af',
+                          'line-width': 2.5,
+                        }}
+                      />
+                    </Source>
+                  )}
+                </React.Fragment>
+              );
+            })}
+
+            {/* Plot Markers - Separate GeoJSON Source (like Domains) */}
+            {(() => {
+              if (!showPlots || filteredPlots.length === 0) return null;
+              
+              // Use filteredPlots to respect filtering
+              const plotMarkers = filteredPlots
+                .filter(plot => {
+                  // Don't filter plots by domain boundary for markers - show all plots with coordinates
+                  // Domain boundary filtering is only for boundary visualization
+                  return true;
+                })
+                .map(plot => {
+                  // Try multiple methods to find plot coordinates
+                  const plotDomainId = plot.domainId?._id || plot.domainId;
+                  const domain = filteredDomains.find(d => d._id === plotDomainId);
+                  const layoutPlot = matchFarmLayoutEntity(plot, 'plot', domain);
+                  const polygonCoords = layoutPlot?.polygonLngLat;
+                  const topAnchorCoords = polygonCoords ? getPolygonTopAnchor(polygonCoords) : null;
+                  const layoutCentroid = layoutPlot?.centroid;
+                  const fallbackCoords = findFallbackLocation(plot, 'plot');
+                  const hasDirectCoordinates = plot.latitude && plot.longitude;
+                  
+                  // Priority: topAnchor > layoutCentroid > fallback > direct coordinates
+                  const displayCoords =
+                    topAnchorCoords ||
+                    layoutCentroid ||
+                    fallbackCoords ||
+                    (hasDirectCoordinates ? [plot.longitude, plot.latitude] : null);
+
+                  if (!displayCoords) {
+                    // If plot is in filtered list but has no coordinates, try to use domain center as fallback
+                    if (filterPlot !== 'all') {
+                      const plotDomainId = plot.domainId?._id || plot.domainId;
+                      const domain = filteredDomains.find(d => d._id === plotDomainId);
+                      if (domain) {
+                        const domainCoords = findFallbackLocation(domain, 'domain');
+                        if (domainCoords) {
+                          console.warn(`Plot "${plot.name}" has no coordinates, using domain center as fallback`);
+                          return {
+                            ...plot,
+                            longitude: domainCoords[0],
+                            latitude: domainCoords[1],
+                          };
+                        }
+                      }
+                    }
+                    console.warn(`Plot "${plot.name}" has no coordinates or fallback`, {
+                      plotId: plot._id,
+                      plotName: plot.name,
+                      hasLayoutPlot: !!layoutPlot,
+                      hasPolygonCoords: !!polygonCoords,
+                      hasDirectCoordinates
+                    });
+                    return null;
+                  }
+
+                  return {
+                    ...plot,
+                    longitude: displayCoords[0],
+                    latitude: displayCoords[1],
+                  };
+                })
+                .filter(Boolean);
+
+              // Add emojis to plot markers for display
+              const plotMarkersWithEmoji = plotMarkers.map(plot => ({
+                ...plot,
+                displayName: `📍 ${plot.name}`
+              }));
+
+              const plotGeoJson = buildGeoJson(plotMarkersWithEmoji, 'plot');
+              
+              if (plotGeoJson.features.length === 0) return null;
+              
+              // Use key to force source update when filtering
+              const plotSourceKey = `plots-source-${filterPlot}-${filterDomain}-${plotMarkers.length}`;
+              
+              return (
+                <Source
+                  key={plotSourceKey}
+                  id="plots-source"
+                  type="geojson"
+                  data={plotGeoJson}
+                >
+                  <Layer
+                    id="plots-layer"
+                    type="circle"
+                    beforeId="domains-layer"
+                    paint={{
+                      'circle-radius': 15,
+                      'circle-color': getMarkerColor('plot'),
+                      'circle-stroke-width': 3,
+                      'circle-stroke-color': '#ffffff',
+                    }}
+                  />
+                  <Layer
+                    id="plots-labels"
+                    type="symbol"
+                    beforeId="domains-layer"
+                    minzoom={8}
+                    layout={{
+                      'text-field': ['get', 'displayName'],
+                      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                      'text-size': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        8, 10,
+                        10, 11,
+                        11, 12,
+                        13, 13,
+                        15, 14,
+                        17, 16
+                      ],
+                      'text-offset': [0, 1.8],
+                      'text-anchor': 'top',
+                      'text-allow-overlap': true,
+                      'text-ignore-placement': false
+                    }}
+                    paint={{
+                      'text-color': '#000000',
+                      'text-halo-color': '#ffffff',
+                      'text-halo-width': 4,
+                      'text-halo-blur': 0
+                    }}
+                  />
+                </Source>
+              );
+            })()}
+
+            {/* Plant Markers - Separate GeoJSON Source */}
+            {(() => {
+              if (!showPlants || filteredPlants.length === 0) return null;
+              
+              const plantMarkers = filteredPlants
+                .map(plant => {
+                  // Try to find coordinates for the plant
+                  const hasDirectCoordinates = plant.latitude && plant.longitude;
+                  
+                  if (hasDirectCoordinates) {
+                    // Plant has coordinates, check if it's within plot boundary
+                  const plantPlotId = plant.plotId?._id || plant.plotId;
+                  const plot = filteredPlots.find(p => p._id === plantPlotId);
+                  
+                    // If no plot found, show plant anyway (might be orphaned)
+                  if (!plot) {
+                      return {
+                        ...plant,
+                        longitude: plant.longitude,
+                        latitude: plant.latitude
+                      };
+                    }
+                    
+                    // If plot has no size/coordinates, show plant at its own coordinates
+                  if (!plot.latitude || !plot.longitude || !plot.size) {
+                      return {
+                        ...plant,
+                        longitude: plant.longitude,
+                        latitude: plant.latitude
+                      };
+                  }
+                  
+                  // Check if plant is within plot boundary
+                    if (isPlantWithinPlot(plant, plot)) {
+                      return {
+                        ...plant,
+                        longitude: plant.longitude,
+                        latitude: plant.latitude
+                      };
+                    }
+                    
+                    // Plant is outside plot boundary, but show it anyway for now
+                    console.warn(`Plant "${plant.name}" is outside plot boundary, showing anyway`);
+                    return {
+                      ...plant,
+                      longitude: plant.longitude,
+                      latitude: plant.latitude
+                    };
+                  } else {
+                    // Plant has no coordinates, try to use plot center as fallback
+                    const plantPlotId = plant.plotId?._id || plant.plotId;
+                    const plot = filteredPlots.find(p => p._id === plantPlotId);
+                    
+                    if (plot) {
+                      // Try to find plot coordinates
+                      const plotDomainId = plot.domainId?._id || plot.domainId;
+                      const domain = filteredDomains.find(d => d._id === plotDomainId);
+                      const layoutPlot = matchFarmLayoutEntity(plot, 'plot', domain);
+                      const polygonCoords = layoutPlot?.polygonLngLat;
+                      const topAnchorCoords = polygonCoords ? getPolygonTopAnchor(polygonCoords) : null;
+                      const layoutCentroid = layoutPlot?.centroid;
+                      const fallbackCoords = findFallbackLocation(plot, 'plot');
+                      const hasPlotCoordinates = plot.latitude && plot.longitude;
+                      
+                      const plotCoords = topAnchorCoords || layoutCentroid || fallbackCoords || 
+                        (hasPlotCoordinates ? [plot.longitude, plot.latitude] : null);
+                      
+                      if (plotCoords) {
+                        console.warn(`Plant "${plant.name}" has no coordinates, using plot center as fallback`);
+                        return {
+                          ...plant,
+                          longitude: plotCoords[0],
+                          latitude: plotCoords[1]
+                        };
+                      }
+                    }
+                    
+                    // No fallback available, skip this plant
+                    console.warn(`Plant "${plant.name}" has no coordinates and no fallback, skipping`);
+                    return null;
+                  }
+                })
+                .filter(Boolean);
+
+              // Add emojis to plant markers for display
+              const plantMarkersWithEmoji = plantMarkers.map(plant => {
+                const emoji = findPlantEmoji(plant.type || plant.variety || plant.name, plant.category);
+                return {
+                  ...plant,
+                  emoji: emoji,
+                  displayName: `${emoji} ${plant.name}`
+                };
+              });
+
+              if (plantMarkersWithEmoji.length === 0) return null;
+              
+              // Debug: Log emoji data
+              console.log('🌱 Plant marker emoji data:', {
+                totalPlants: plantMarkersWithEmoji.length,
+                firstPlant: plantMarkersWithEmoji[0]?.name,
+                firstEmoji: plantMarkersWithEmoji[0]?.emoji,
+                firstEmojiCode: plantMarkersWithEmoji[0]?.emoji?.charCodeAt(0),
+                sample3Plants: plantMarkersWithEmoji.slice(0, 3).map(p => ({ name: p.name, emoji: p.emoji }))
+              });
+              
+              // Use HTML Markers for plants - Mapbox text symbol layers don't render emojis properly
+              return plantMarkersWithEmoji.map(plant => (
+                <Marker
+                  key={plant._id}
+                  longitude={plant.longitude}
+                  latitude={plant.latitude}
+                  anchor="center"
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    handleMarkerClick(plant, 'plant');
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {/* Emoji marker with white background and green border */}
+                    <div
+                      style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        backgroundColor: '#ffffff',
+                        border: '2px solid #059669',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '26px',
+                        lineHeight: 1,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        transition: 'transform 0.2s',
+                        userSelect: 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.15)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
+                    >
+                      {plant.emoji || '🌱'}
+                    </div>
+                    {/* Label below marker */}
+                    {viewState.zoom >= 13 && (
+                      <div
+                        style={{
+                          marginTop: '6px',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          color: '#000000',
+                          textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 4px #fff',
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        {plant.displayName}
+                      </div>
+                    )}
+                  </div>
+                </Marker>
+              ));
+            })()}
 
 
           </Map>
@@ -1937,13 +2346,13 @@ function MapViewMapbox({ user, selectedState }) {
             <span className="text-sm text-gray-700 dark:text-gray-300">Plots (rectangular boundaries)</span>
           </div> 
           <div className="flex items-center space-x-3">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs" style={{ backgroundColor: '#059669' }}>🌱</div>
-            <span className="text-sm text-gray-700 dark:text-gray-300">Plants (markers)</span>
+            <div className="w-6 h-6 flex items-center justify-center text-lg">🌱</div>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Plants (shown with plant-specific emojis)</span>
           </div>
         </div>
         <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <p className="text-xs text-gray-600 dark:text-gray-400">
-            <strong>Boundary Types:</strong> Purple = domains, Blue = plots with size, Gray dashed = default plots (50m×50m)
+            <strong>Boundary Types:</strong> Purple = domains, Blue = plots with size, Gray dashed = default plots (10,000 sq ft placeholder)
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             <strong>Area Units:</strong> All areas displayed in square feet (sq ft)
@@ -1974,18 +2383,18 @@ function MapViewMapbox({ user, selectedState }) {
         </div>
         
         {/* Boundary Information */}
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        {/* <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Boundary Information</h4>
           <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
             <p><strong>Domains:</strong> Purple rectangular boundaries show actual domain size from database</p>
-            <p><strong>Plots:</strong> Blue rectangular boundaries show actual plot size, gray dashed for default 50m×50m</p>
+            <p><strong>Plots:</strong> Blue rectangular boundaries show actual plot size, gray dashed for default 10,000 sq ft placeholders</p>
             <p><strong>Plants:</strong> Must be placed within plot boundaries</p>
           </div>
-        </div>
+        </div> */}
       </div>
 
     </div>
   );
-}
+});
 
 export default MapViewMapbox;

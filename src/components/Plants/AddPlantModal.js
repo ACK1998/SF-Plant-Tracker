@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Leaf, Calendar, Building, Loader2, User, Grid, Navigation, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { healthOptions, growthStages } from '../../data/plantsData';
 import SearchableDropdown from '../common/SearchableDropdown';
@@ -98,7 +98,7 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
   const [plantTypes, setPlantTypes] = useState([]);
   const [plantVarieties, setPlantVarieties] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [, setLoadingTypes] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
 
   const [showAddTypeModal, setShowAddTypeModal] = useState(false);
   const [showAddVarietyModal, setShowAddVarietyModal] = useState(false);
@@ -111,46 +111,109 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
   const [imageInputType, setImageInputType] = useState('file'); // 'file' or 'url'
   const [imageUrl, setImageUrl] = useState('');
 
+  // Memoize user identifiers to prevent unnecessary re-renders
+  const userRole = useMemo(() => currentUser.role, [currentUser.role]);
+  const userOrgId = useMemo(() => {
+    const orgId = currentUser.organizationId;
+    if (!orgId) return null;
+    // Handle both populated object and ObjectId
+    if (typeof orgId === 'object' && orgId._id) {
+      return String(orgId._id);
+    }
+    return String(orgId);
+  }, [currentUser.organizationId]);
+
   // Load plant types, varieties, and categories
   useEffect(() => {
+    let isMounted = true; // Flag to prevent state updates if component unmounts
+    
     const loadPlantData = async () => {
       setLoadingTypes(true);
       try {
-        const [typesRes, varietiesRes, categoriesRes] = await Promise.all([
+        // Load categories
+        const categoriesRes = await api.getAllCategories();
+        
+        // Load other data in parallel
+        const [typesRes, varietiesRes] = await Promise.all([
           api.getAllPlantTypes(),
-          api.getAllPlantVarieties(),
-          api.getAllCategories()
+          api.getAllPlantVarieties()
         ]);
 
-        if (typesRes.success) {
-          console.log('Loaded plant types:', typesRes.data);
-          setPlantTypes(typesRes.data);
+        // Only update state if component is still mounted
+        if (!isMounted) return;
+
+        // Handle plant types
+        if (typesRes && typesRes.success) {
+          setPlantTypes(typesRes.data || []);
         } else {
-          console.error('Plant types API failed:', typesRes);
+          setPlantTypes([]);
         }
 
-        if (varietiesRes.success) {
-          console.log('Loaded plant varieties:', varietiesRes.data);
-          setPlantVarieties(varietiesRes.data);
+        // Handle plant varieties
+        if (varietiesRes && varietiesRes.success) {
+          setPlantVarieties(varietiesRes.data || []);
         } else {
-          console.error('Plant varieties API failed:', varietiesRes);
+          setPlantVarieties([]);
         }
 
-        if (categoriesRes.success) {
-          console.log('Loaded categories:', categoriesRes.data);
-          setCategories(categoriesRes.data);
+        // Handle categories - with better error handling
+        if (categoriesRes) {
+          if (categoriesRes.success) {
+            const categoriesData = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
+            setCategories(categoriesData);
+            
+            // Log if no categories found
+            if (categoriesData.length === 0) {
+              console.warn('AddPlantModal: No categories found. User may need to create categories first.');
+            }
+          } else {
+            console.error('AddPlantModal: Categories API failed:', categoriesRes);
+            setCategories([]);
+            
+            // Show user-friendly error if available
+            if (categoriesRes.message && window.showNotification) {
+              window.showNotification({
+                type: 'warning',
+                message: `Could not load categories: ${categoriesRes.message}`,
+                duration: 5000
+              });
+            }
+          }
         } else {
-          console.error('Categories API failed:', categoriesRes);
+          console.error('AddPlantModal: Categories API returned null/undefined');
+          setCategories([]);
         }
       } catch (error) {
-        console.error('Failed to load plant data:', error);
+        if (!isMounted) return;
+        
+        console.error('AddPlantModal: Failed to load plant data:', error);
+        // Set empty arrays on error to prevent undefined issues
+        setPlantTypes([]);
+        setPlantVarieties([]);
+        setCategories([]);
+        
+        // Show error notification
+        if (window.showNotification) {
+          window.showNotification({
+            type: 'error',
+            message: `Failed to load plant data: ${error.message}`,
+            duration: 5000
+          });
+        }
       } finally {
-        setLoadingTypes(false);
+        if (isMounted) {
+          setLoadingTypes(false);
+        }
       }
     };
 
     loadPlantData();
-  }, []);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [userRole, userOrgId]);
 
   // Get available varieties based on selected type
   const getAvailableVarieties = () => {
@@ -747,20 +810,28 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
                   </button>
                 </div>
                 <SearchableDropdown
-                  options={[
-                    { value: '', label: 'Select a category' },
-                    ...categories.map(category => ({ 
-                      value: category.name, 
-                      label: `${category.emoji} ${category.displayName}` 
-                    }))
-                  ]}
+                  options={useMemo(() => {
+                    return [
+                      { value: '', label: 'Select a category' },
+                      ...(categories || []).map(category => ({
+                        value: category.name || category._id || '',
+                        label: `${category.emoji || '🌱'} ${category.displayName || category.name || 'Unnamed Category'}`
+                      }))
+                    ];
+                  }, [categories])}
                   value={formData.category}
                   onChange={handleChange}
                   name="category"
-                  placeholder="Select a category"
+                  placeholder={loadingTypes ? "Loading categories..." : "Select a category"}
                   searchPlaceholder="Search categories..."
                   className={`input-field ${errors.category ? 'border-red-500' : ''}`}
+                  disabled={loadingTypes}
                 />
+                {!loadingTypes && categories.length === 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    No categories available. Click "+ Add New Category" to create one.
+                  </p>
+                )}
                 {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
               </div>
             </div>

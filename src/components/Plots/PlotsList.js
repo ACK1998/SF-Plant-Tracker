@@ -44,10 +44,11 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
     }
   }, [id, showEditModalProp, plots]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [plotToDelete, setPlotToDelete] = useState(null);
 
-  // Filter plots based on selected state
+  // Filter plots based on selected state and domain
   const filteredPlots = plots.filter(plot => {
     const matchesSearch = plot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          plot.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -57,7 +58,12 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
     const matchesState = selectedState === 'all' || 
       organizations.find(org => org._id === plotOrgId)?.address?.state === selectedState;
     
-    return matchesSearch && matchesState;
+    // Filter by domain
+    const plotDomainId = plot.domainId?._id || plot.domainId;
+    const matchesDomain = !selectedDomain || selectedDomain === 'all' || 
+      String(plotDomainId) === String(selectedDomain);
+    
+    return matchesSearch && matchesState && matchesDomain;
   });
 
   const handleAddPlot = async (newPlot) => {
@@ -300,19 +306,46 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
         )}
       </div>
 
-      {/* Search */}
+      {/* Filters Section */}
       <div className="card">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          {/* Search */}
+          <div className="flex flex-col">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Search Plots
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search plots..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10 w-full"
+              />
+            </div>
           </div>
-          <input
-            type="text"
-            placeholder="Search plots..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field pl-10"
-          />
+
+          {/* Domain Filter */}
+          <div className="flex flex-col">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Filter by Domain
+            </label>
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className="input-field w-full"
+            >
+              <option value="all">All Domains</option>
+              {domains.map(domain => (
+                <option key={domain._id} value={domain._id}>
+                  {domain.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -322,12 +355,12 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
           <div className="text-6xl mb-4">🌱</div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No plots found</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {searchTerm 
-              ? 'Try adjusting your search criteria.'
+            {searchTerm || selectedDomain 
+              ? 'Try adjusting your search or filter criteria.'
               : 'Get started by adding your first plot!'
             }
           </p>
-          {!searchTerm && user.role === 'super_admin' && (
+          {!searchTerm && !selectedDomain && user.role === 'super_admin' && (
             <button
               onClick={() => setShowAddModal(true)}
               className="btn-primary"
@@ -486,7 +519,16 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAdd(formData);
+    
+    // Convert size from sqft to sqm (DB stores in sqm)
+    const submitData = {
+      ...formData,
+      size: formData.size ? Number(formData.size) * 0.092903 : 0, // Convert sqft to sqm
+      latitude: formData.latitude ? Number(formData.latitude) : null,
+      longitude: formData.longitude ? Number(formData.longitude) : null,
+    };
+    
+    onAdd(submitData);
   };
 
   const handleChange = (e) => {
@@ -707,10 +749,13 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
 
 // Edit Plot Modal Component
 function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, plots }) {
+  // Convert size from sqm (DB) to sqft (UI display)
+  const sizeInSqFt = plot.size ? plot.size / 0.092903 : 0;
+  
   const [formData, setFormData] = useState({
     name: plot.name || '',
     description: plot.description || '',
-    size: plot.size || 0,
+    size: sizeInSqFt, // Display in sqft
     soilType: plot.soilType || '',
     irrigationType: plot.irrigationType || '',
     sunExposure: plot.sunExposure || '',
@@ -722,7 +767,16 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onUpdate({ ...plot, ...formData });
+    
+    // Convert size from sqft to sqm (DB stores in sqm)
+    const updateData = {
+      ...formData,
+      size: formData.size ? Number(formData.size) * 0.092903 : 0, // Convert sqft to sqm
+      latitude: formData.latitude ? Number(formData.latitude) : null,
+      longitude: formData.longitude ? Number(formData.longitude) : null,
+    };
+    
+    onUpdate({ ...plot, ...updateData });
   };
 
   const handleChange = (e) => {

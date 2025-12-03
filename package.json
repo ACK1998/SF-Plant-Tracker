@@ -4,6 +4,7 @@
   "description": "A comprehensive plant tracking application for Sanctity Ferme",
   "private": true,
   "dependencies": {
+    "@sentry/react": "^10.20.0",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
@@ -22,11 +23,16 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:production": "NODE_ENV=production npm run build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "preview": "serve -s build -l 3000",
+    "analyze": "npm run build && npx serve -s build",
+    "deploy:check": "chmod +x scripts/pre-deployment-check.sh && ./scripts/pre-deployment-check.sh",
+    "deploy:production": "npm run build:production && npm run deploy:check"
   },
   "eslintConfig": {
     "extends": [
