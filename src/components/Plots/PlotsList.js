@@ -567,10 +567,10 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Convert size from sqft to sqm (DB stores in sqm)
+    // DB stores size in sq ft, no conversion needed
     const submitData = {
       ...formData,
-      size: formData.size ? Number(formData.size) * 0.092903 : 0, // Convert sqft to sqm
+      size: formData.size ? Number(formData.size) : 0,
       latitude: formData.latitude ? Number(formData.latitude) : null,
       longitude: formData.longitude ? Number(formData.longitude) : null,
     };
@@ -820,13 +820,11 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
 
 // Edit Plot Modal Component
 function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, plots }) {
-  // Convert size from sqm (DB) to sqft (UI display)
-  const sizeInSqFt = plot.size ? plot.size / 0.092903 : 0;
-  
+  // DB stores size in sq ft, no conversion needed
   const [formData, setFormData] = useState({
     name: plot.name || '',
     description: plot.description || '',
-    size: sizeInSqFt, // Display in sqft
+    size: plot.size || 0, // Display in sqft
     soilType: plot.soilType || '',
     irrigationType: plot.irrigationType || '',
     sunExposure: plot.sunExposure || '',
@@ -886,10 +884,10 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Convert size from sqft to sqm (DB stores in sqm)
+    // DB stores size in sq ft, no conversion needed
     const updateData = {
       ...formData,
-      size: formData.size ? Number(formData.size) * 0.092903 : 0, // Convert sqft to sqm
+      size: formData.size ? Number(formData.size) : 0,
       latitude: formData.latitude ? Number(formData.latitude) : null,
       longitude: formData.longitude ? Number(formData.longitude) : null,
     };

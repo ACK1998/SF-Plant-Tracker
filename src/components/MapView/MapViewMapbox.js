@@ -348,9 +348,15 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     }
     
     const distance = calculateDistance(plot.latitude, plot.longitude, plant.latitude, plant.longitude);
-    const plotRadius = plot.size ? Math.sqrt(plot.size / Math.PI) : 0;
+    // Plot size is stored in sq ft
+    if (!plot.size) return false;
+    const areaSqFt = plot.size;
+    // Calculate radius in feet, then convert to meters
+    const radiusFt = Math.sqrt(areaSqFt / Math.PI);
+    const radiusM = radiusFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
+    const radiusKm = radiusM / 1000; // Convert to kilometers
     
-    return plotRadius > 0 && distance <= plotRadius;
+    return radiusKm > 0 && distance <= radiusKm;
   };
 
   // Popup content renderer
@@ -686,6 +692,11 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
   // Helper functions
   const getOrganizationName = (orgId) => {
+    // If orgId is already a populated object with name, use it directly
+    if (orgId && typeof orgId === 'object' && orgId.name) {
+      return orgId.name;
+    }
+    
     // Handle both string and object orgId
     const orgIdStr = orgId?._id || orgId;
     if (!orgIdStr) return 'No Organization Assigned';
@@ -695,6 +706,11 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   };
 
   const getDomainName = (domainId) => {
+    // If domainId is already a populated object with name, use it directly
+    if (domainId && typeof domainId === 'object' && domainId.name) {
+      return domainId.name;
+    }
+    
     // Handle both string and object domainId
     const domainIdStr = domainId?._id || domainId;
     if (!domainIdStr) return 'No Domain Assigned';
@@ -1227,15 +1243,31 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     // No clusters anymore - directly handle individual marker click
     const properties = feature.properties;
     const type = properties.type;
-    const item = {
+    const itemId = properties.id || properties._id;
+    
+    // For plots, look up the full plot data from the plots array to get populated domain/organization
+    let item = {
       ...properties,
-      _id: properties.id,
+      _id: itemId,
       longitude: feature.geometry.coordinates[0],
       latitude: feature.geometry.coordinates[1]
     };
+    
+    // If it's a plot, try to get the full plot data with populated fields
+    if (type === 'plot') {
+      const fullPlot = plots.find(p => p._id === itemId) || filteredPlots.find(p => p._id === itemId);
+      if (fullPlot) {
+        // Merge with full plot data to ensure populated domainId and organizationId are included
+        item = {
+          ...fullPlot,
+          longitude: feature.geometry.coordinates[0],
+          latitude: feature.geometry.coordinates[1]
+        };
+      }
+    }
 
     handleMarkerClick(item, type);
-  }, [handleMarkerClick]);
+  }, [handleMarkerClick, plots, filteredPlots]);
 
   // Handle popup close
   const handlePopupClose = useCallback(() => {
@@ -1392,14 +1424,13 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       return null;
     }
 
-    // Convert square meters to square feet if needed (domain.size is in sq ft from the UI)
-    const sizeInSqMeters = domainSize * 0.092903; // Convert sq ft to sq m
-    
-    // Calculate the side length of a square with the given area
-    const sideLength = Math.sqrt(sizeInSqMeters);
+    // Domain size is stored in sq ft in DB
+    // Calculate side length in feet, then convert to meters
+    const sideLengthFt = Math.sqrt(domainSize);
+    const sideLengthM = sideLengthFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
     
     // Convert to degrees (approximate: 1 degree ≈ 111,000 meters)
-    const sideLengthDegrees = sideLength / 111000;
+    const sideLengthDegrees = sideLengthM / 111000;
     
     // Create a square boundary centered on the domain
     const halfSide = sideLengthDegrees / 2;
@@ -1419,14 +1450,14 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       properties: {
         name: domain.name,
         size: domainSize,
-        sideLength: sideLength
+        sideLength: sideLengthM
       }
     };
 
     return { 
       polygon: squarePolygon, 
-      radius: sideLength / 2, // Half the side length for compatibility
-      sideLength: sideLength,
+      radius: sideLengthM / 2, // Half the side length for compatibility
+      sideLength: sideLengthM,
       sideLengthDegrees: sideLengthDegrees
     };
   };
@@ -1437,9 +1468,11 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       return null;
     }
     
-    // Plot size is stored in sqm in DB
-    const areaSqM = plot.size;
-    const sideLengthM = Math.sqrt(areaSqM);
+    // Plot size is stored in sq ft in DB
+    const areaSqFt = plot.size;
+    // Calculate side length in feet, then convert to meters
+    const sideLengthFt = Math.sqrt(areaSqFt);
+    const sideLengthM = sideLengthFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
     const sideLengthDegrees = sideLengthM / 111000;
     const halfSide = sideLengthDegrees / 2;
     
@@ -2012,8 +2045,8 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                 return null;
               }
 
-              const layoutPlot = matchFarmLayoutEntity(plot, 'plot', domain);
-              const polygonCoords = layoutPlot?.polygonLngLat || generatePlotBoundaryFromSize(plot);
+              // Always use calculated square boundary based on plot size to ensure it matches the plot size
+              const polygonCoords = generatePlotBoundaryFromSize(plot);
               const plotBoundary = polygonCoords
                 ? {
                     type: 'Feature',

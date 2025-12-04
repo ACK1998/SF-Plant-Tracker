@@ -631,13 +631,16 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
     if (formData.latitude && formData.longitude && formData.plotId) {
       const plot = plots.find(p => p._id === formData.plotId);
       if (plot && plot.latitude && plot.longitude) {
-        // Calculate plot dimensions based on size
-        const plotSideLength = Math.sqrt(plot.size || 10000); // Default to 100m x 100m if no size
-        const maxDistanceKm = (plotSideLength / 2) / 1000; // Convert to km
+        // Plot size is stored in sq ft
+        const areaSqFt = plot.size || 10000; // Default to 10000 sq ft if no size
+        // Calculate side length in feet, then convert to meters
+        const plotSideLengthFt = Math.sqrt(areaSqFt);
+        const plotSideLengthM = plotSideLengthFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
+        const maxDistanceKm = (plotSideLengthM / 2) / 1000; // Convert to km
         
         const distance = calculateDistance(plot.latitude, plot.longitude, formData.latitude, formData.longitude);
         if (distance > maxDistanceKm) {
-          newErrors.location = `Plant must be placed within the plot boundaries. Plot size: ${plot.size || 10000}m², maximum distance from center: ${formatDistance(maxDistanceKm)}. Current distance: ${formatDistance(distance)}`;
+          newErrors.location = `Plant must be placed within the plot boundaries. Plot size: ${areaSqFt} sq ft, maximum distance from center: ${formatDistance(maxDistanceKm)}. Current distance: ${formatDistance(distance)}`;
         }
       }
     }
@@ -1388,12 +1391,14 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
                     if (plot && plot.latitude && plot.longitude) {
                       console.log('Creating plot boundary for:', plot.name, 'at:', plot.latitude, plot.longitude, 'size:', plot.size);
                       
-                      // Calculate plot dimensions based on size (square meters)
-                      // For a square plot, side length = sqrt(size)
-                      const plotSideLength = Math.sqrt(plot.size || 10000); // Default to 100m x 100m if no size
-                      const radiusKm = (plotSideLength / 2) / 1000; // Convert to km
+                      // Plot size is stored in sq ft
+                      const areaSqFt = plot.size || 10000; // Default to 10000 sq ft if no size
+                      // Calculate side length in feet, then convert to meters
+                      const plotSideLengthFt = Math.sqrt(areaSqFt);
+                      const plotSideLengthM = plotSideLengthFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
+                      const radiusKm = (plotSideLengthM / 2) / 1000; // Convert to km
                       
-                      console.log('Plot side length:', plotSideLength, 'm, radius:', radiusKm, 'km');
+                      console.log('Plot side length:', plotSideLengthM, 'm, radius:', radiusKm, 'km');
                       
                       // Create a square boundary around plot center
                       const points = [];

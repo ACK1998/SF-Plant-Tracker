@@ -171,10 +171,13 @@ function MapPickerMapbox({
       case 'plot':
         // Calculate domain radius based on plot area if available
         if (domainPlots && domainPlots.length > 0) {
-          const totalPlotArea = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
-          if (totalPlotArea > 0) {
-            const domainRadius = Math.sqrt(totalPlotArea / Math.PI);
-            return domainRadius; // Already in meters
+          // Plot size is stored in sq ft
+          const totalPlotAreaSqFt = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
+          if (totalPlotAreaSqFt > 0) {
+            // Calculate domain radius in feet, then convert to meters
+            const domainRadiusFt = Math.sqrt(totalPlotAreaSqFt / Math.PI);
+            const domainRadiusM = domainRadiusFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
+            return domainRadiusM; // Already in meters
           }
         }
         return LOCATION_RULES.PLOT_RADIUS * 1000; // Fallback to fixed radius

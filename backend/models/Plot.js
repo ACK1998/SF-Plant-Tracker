@@ -21,7 +21,7 @@ const plotSchema = new mongoose.Schema({
     required: true
   },
   size: {
-    type: Number, // in square meters
+    type: Number, // in square feet
     default: 0
   },
   soilType: {

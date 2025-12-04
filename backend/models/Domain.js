@@ -20,7 +20,7 @@ const domainSchema = new mongoose.Schema({
     trim: true
   },
   size: {
-    type: Number, // in square meters
+    type: Number, // in square feet
     default: 0
   },
   soilType: {

@@ -50,20 +50,21 @@ export function validatePlotLocation(plotLat, plotLng, domainLat, domainLng, dom
     return isWithinRadius(domainLat, domainLng, plotLat, plotLng, LOCATION_RULES.PLOT_RADIUS);
   }
   
-  // Calculate total plot area for this domain
-  const totalPlotArea = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
+  // Calculate total plot area for this domain (plot.size is in sq ft)
+  const totalPlotAreaSqFt = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
   
   // If no plots have size information, fall back to fixed radius
-  if (totalPlotArea <= 0) {
+  if (totalPlotAreaSqFt <= 0) {
     return isWithinRadius(domainLat, domainLng, plotLat, plotLng, LOCATION_RULES.PLOT_RADIUS);
   }
   
-  // Calculate domain radius based on total plot area
+  // Calculate domain radius in feet, then convert to meters
   // Area = π * r², so r = √(Area / π)
-  const domainRadius = Math.sqrt(totalPlotArea / Math.PI);
+  const domainRadiusFt = Math.sqrt(totalPlotAreaSqFt / Math.PI);
+  const domainRadiusM = domainRadiusFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
   
   // Convert to kilometers for the distance calculation
-  const domainRadiusKm = domainRadius / 1000;
+  const domainRadiusKm = domainRadiusM / 1000;
   
   return isWithinRadius(domainLat, domainLng, plotLat, plotLng, domainRadiusKm);
 }
@@ -98,10 +99,12 @@ export function getLocationErrorMessage(type, distance, maxDistance, domainPlots
       // Calculate domain radius based on plot area if available
       let maxDistanceFormatted;
       if (domainPlots && domainPlots.length > 0) {
-        const totalPlotArea = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
-        if (totalPlotArea > 0) {
-          const domainRadius = Math.sqrt(totalPlotArea / Math.PI);
-          maxDistanceFormatted = formatDistance(domainRadius / 1000);
+        const totalPlotAreaSqFt = domainPlots.reduce((total, plot) => total + (plot.size || 0), 0);
+        if (totalPlotAreaSqFt > 0) {
+          // Calculate domain radius in feet, then convert to meters
+          const domainRadiusFt = Math.sqrt(totalPlotAreaSqFt / Math.PI);
+          const domainRadiusM = domainRadiusFt * 0.3048; // Convert feet to meters (1 ft = 0.3048 m)
+          maxDistanceFormatted = formatDistance(domainRadiusM / 1000);
         } else {
           maxDistanceFormatted = formatDistance(maxDistance);
         }
