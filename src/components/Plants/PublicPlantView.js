@@ -11,7 +11,9 @@ function PublicPlantView({ plantId }) {
   const fetchPlant = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/plants/public/${plantId}`);
+      // Use the same API URL pattern as api.js
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+      const response = await fetch(`${apiBaseUrl}/plants/public/${plantId}`);
       const data = await response.json();
       
       if (data.success) {

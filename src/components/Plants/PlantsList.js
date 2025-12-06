@@ -255,79 +255,61 @@ function PlantsList({ user, selectedState }) {
     return acc;
   }, []);
 
-  // Get available plots function - defined before useEffect
+  // Get available plots function - shows ALL plots from API, not just ones from current page
   const getAvailablePlots = useCallback((selectedDomainId = null) => {
     console.log('getAvailablePlots called with selectedDomainId:', selectedDomainId);
-    console.log('plotsFromPlants:', plotsFromPlants);
-    console.log('plots from API:', plots);
+    console.log('Total plots from API:', plots.length);
     
-    // If domain filtering is needed, use API plots which have proper domain relationships
-    // Otherwise, prioritize plots from plants data since that's what's actually displayed
-    let allPlots;
+    // Always use ALL plots from API (up to 500 plots loaded on initial page load)
+    // This ensures the dropdown shows all available plots, not just ones from current page
+    let allPlots = plots;
     
-    if (selectedDomainId && selectedDomainId !== 'all') {
-      // Use API plots for domain filtering since they have proper domain relationships
-      allPlots = plots;
-      console.log('Using API plots for domain filtering:', allPlots);
-    } else {
-      // Use plots from plants data for general display
-      allPlots = plotsFromPlants;
-      
-      // If no plots from plants data, fall back to API plots
-      if (allPlots.length === 0) {
-        allPlots = plots;
+    if (!user || !user.role) {
+      // If domain is selected, filter by domain
+      if (selectedDomainId && selectedDomainId !== 'all') {
+        allPlots = allPlots.filter(plot => {
+          const plotDomainId = plot.domainId?._id || plot.domainId;
+          return String(plotDomainId) === String(selectedDomainId);
+        });
       }
-      console.log('Using plots from plants data:', allPlots);
+      console.log('Returning plots (no user):', allPlots.length);
+      return allPlots;
     }
-    
-    if (!user || !user.role) return allPlots;
     
     // Super admin can see all plots
     if (user.role === 'super_admin') {
       // If a domain is selected, filter plots by that domain
       if (selectedDomainId && selectedDomainId !== 'all') {
-        console.log('Filtering plots for domain:', selectedDomainId);
-        console.log('Plots before filtering:', allPlots);
         allPlots = allPlots.filter(plot => {
           const plotDomainId = plot.domainId?._id || plot.domainId;
-          const matches = String(plotDomainId) === String(selectedDomainId);
-          console.log(`Plot "${plot.name}" domainId: ${plotDomainId}, matches: ${matches}`);
-          return matches;
+          return String(plotDomainId) === String(selectedDomainId);
         });
-        console.log('Plots after filtering:', allPlots);
       }
-      
+      console.log('Returning plots (super admin):', allPlots.length);
       return allPlots;
     }
     
-    // For plots derived from plants, they might not have organizationId
-    // In this case, we should show them to all users in the organization
+    // Filter by organization for non-super admins
     const userOrgId = user.organizationId?._id || user.organizationId;
     let filteredPlots = allPlots.filter(plot => {
-      // If plot doesn't have organizationId (from plants data), show it
       if (!plot.organizationId) {
-        return true;
+        return true; // Show plots without organizationId
       }
-      
       const plotOrgId = plot.organizationId?._id || plot.organizationId;
-      const matches = String(plotOrgId) === String(userOrgId);
-      return matches;
+      return String(plotOrgId) === String(userOrgId);
     });
     
-          // If a domain is selected, further filter plots by that domain
-      if (selectedDomainId && selectedDomainId !== 'all') {
-        console.log('Filtering plots for domain (non-super admin):', selectedDomainId);
-        console.log('Plots before domain filtering:', filteredPlots);
-        filteredPlots = filteredPlots.filter(plot => {
-          const plotDomainId = plot.domainId?._id || plot.domainId;
-          const matches = String(plotDomainId) === String(selectedDomainId);
-          console.log(`Plot "${plot.name}" domainId: ${plotDomainId}, matches: ${matches}`);
-          return matches;
-        });
-        console.log('Plots after domain filtering:', filteredPlots);
-      }
+    // If a domain is selected, further filter plots by that domain
+    if (selectedDomainId && selectedDomainId !== 'all') {
+      filteredPlots = filteredPlots.filter(plot => {
+        const plotDomainId = plot.domainId?._id || plot.domainId;
+        return String(plotDomainId) === String(selectedDomainId);
+      });
+    }
+    
+    console.log('Returning plots (filtered by org/domain):', filteredPlots.length);
     return filteredPlots;
-  }, [plotsFromPlants, plots, user]);
+  }, [plots, user]);
 
   // Reset plot filter when domain filter changes (only if current plot is not in selected domain)
   useEffect(() => {
