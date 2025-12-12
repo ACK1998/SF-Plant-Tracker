@@ -33,6 +33,12 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const PLOT_FOCUS_ZOOM = 18; // Zoom level equivalent to ~8x magnification for plots
 
+// Zoom thresholds for progressive loading
+const ZOOM_THRESHOLDS = {
+  SHOW_PLOTS: 12,    // Show plots at zoom 12+
+  SHOW_PLANTS: 15    // Show plants at zoom 15+
+};
+
 const normalizeIdentifier = (value) => {
   if (value === null || value === undefined) return '';
   return value.toString().trim().replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -119,7 +125,7 @@ const getPolygonTopAnchor = (polygonLngLat) => {
 // CustomMarker component removed - using GeoJSON sources instead for better performance
 
 const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState }) {
-  const { mapViewPlants } = useMapView();
+  const { mapViewPlants, refreshMapViewData } = useMapView();
   const { 
     plots, 
     domains, 
@@ -133,6 +139,19 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   const mapRef = useRef();
   const mapInstanceRef = useRef(null);
   const filteringInProgress = useRef(false);
+  
+  // Track user interaction to prevent auto-zoom interference
+  const userInteractingRef = useRef(false);
+  const lastFilterPlotRef = useRef('all');
+  const lastFilterDomainRef = useRef('all');
+  
+  // Progressive loading state - track what data has been loaded
+  const [loadedDataState, setLoadedDataState] = useState({
+    plots: false,
+    plants: false
+  });
+  const loadedBoundsRef = useRef(null);
+  const lastZoomRef = useRef(0);
   
   // Viewport-based lazy loading state
   const [visibleMarkers, setVisibleMarkers] = useState({
@@ -215,11 +234,6 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   const [showPlots, setShowPlots] = useState(true);
   const [showPlants, setShowPlants] = useState(true);
   const [showBoundaries, setShowBoundaries] = useState(true);
-  
-  // Filtered data
-  const [filteredDomains, setFilteredDomains] = useState([]);
-  const [filteredPlots, setFilteredPlots] = useState([]);
-  const [filteredPlants, setFilteredPlants] = useState([]);
   
   // Selected item state for popup
   const [selectedItem, setSelectedItem] = useState(null);
@@ -307,16 +321,6 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
     return () => clearTimeout(timer);
   }, [mapReady]);
-
-  // Check marker rendering
-  useEffect(() => {
-    if (mapReady && !loading) {
-      const totalMarkers = filteredDomains.length + filteredPlots.length + filteredPlants.length;
-      if (totalMarkers === 0) {
-        console.warn("No markers rendered, check API data or filters");
-      }
-    }
-  }, [filteredDomains, filteredPlots, filteredPlants, mapReady, loading]);
 
 
 
@@ -786,18 +790,27 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   const availableDomains = getAvailableDomains();
   const availablePlots = getAvailablePlots(filterDomain);
 
-  // Filter data based on selections and location hierarchy rules
-  useEffect(() => {
-    if (loading || !urlParamsInitialized || filteringInProgress.current) {
-      return;
+  // Memoized filtered data - much more efficient than useEffect
+  // This must be defined early as it's used in multiple places
+  const { filteredDomains: filteredDomainsData, filteredPlots: filteredPlotsData, filteredPlants: filteredPlantsData } = useMemo(() => {
+    // Early return if not ready
+    if (loading || !urlParamsInitialized) {
+      return { filteredDomains: [], filteredPlots: [], filteredPlants: [] };
     }
 
-    // Prevent multiple simultaneous filtering operations
-    filteringInProgress.current = true;
-    const filterTimeout = setTimeout(() => {
-      let filteredDomainsData = domains;
-      let filteredPlotsData = plots;
-      let filteredPlantsData = mapViewPlants;
+    // Only process data that should be visible based on zoom
+    const shouldShowPlots = viewState.zoom >= ZOOM_THRESHOLDS.SHOW_PLOTS;
+    const shouldShowPlants = viewState.zoom >= ZOOM_THRESHOLDS.SHOW_PLANTS;
+    
+    // Start with all domains (always visible), but limit plots/plants based on zoom
+    // Also check if filters require data to be loaded regardless of zoom
+    const hasActiveFilters = filterPlot !== 'all' || filterDomain !== 'all';
+    const shouldLoadPlots = shouldShowPlots || hasActiveFilters;
+    const shouldLoadPlants = shouldShowPlants || hasActiveFilters;
+    
+    let filteredDomainsData = domains;
+    let filteredPlotsData = shouldLoadPlots ? plots : [];
+    let filteredPlantsData = shouldLoadPlants ? mapViewPlants : [];
 
     // TEMPORARILY DISABLE ROLE-BASED FILTERING FOR TESTING
     // TODO: Re-enable after confirming markers render correctly
@@ -998,16 +1011,61 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       });
     }
 
-      setFilteredDomains(filteredDomainsData);
-      setFilteredPlots(filteredPlotsData);
-      setFilteredPlants(filteredPlantsData);
+    return {
+      filteredDomains: filteredDomainsData,
+      filteredPlots: filteredPlotsData,
+      filteredPlants: filteredPlantsData
+    };
+  }, [
+    domains, 
+    plots, 
+    mapViewPlants, 
+    loading, 
+    urlParamsInitialized,
+    viewState.zoom,
+    searchTerm, 
+    filterOrganization, 
+    filterType, 
+    filterPlot, 
+    filterDomain, 
+    filterCategory, 
+    filterVariety, 
+    filterStatus,
+    user?.role
+  ]);
 
-      // Center map to selected plot when plot filter is applied
-      if (filterPlot !== 'all' && filteredPlotsData.length > 0) {
-        const selectedPlot = filteredPlotsData[0];
+  // Extract filtered data for use throughout component (aliases for convenience)
+  const filteredDomains = filteredDomainsData;
+  const filteredPlots = filteredPlotsData;
+  const filteredPlants = filteredPlantsData;
+
+  // Separate useEffect for map centering when filters change (non-blocking)
+  // Only runs when filter values actually change, not when filtered data recomputes
+  useEffect(() => {
+    if (loading || !urlParamsInitialized || !mapReady) return;
+    
+    // Only auto-zoom if filters actually changed, not if user is manually interacting
+    const filterPlotChanged = filterPlot !== lastFilterPlotRef.current;
+    const filterDomainChanged = filterDomain !== lastFilterDomainRef.current;
+    
+    if (!filterPlotChanged && !filterDomainChanged) {
+      return; // Filters haven't changed, don't interfere with user zoom
+    }
+    
+    // Don't auto-zoom if user is currently interacting with the map
+    if (userInteractingRef.current) {
+      // Update refs but don't zoom
+      lastFilterPlotRef.current = filterPlot;
+      lastFilterDomainRef.current = filterDomain;
+      return;
+    }
+
+    // Center map to selected plot when plot filter is applied
+    if (filterPlot !== 'all' && filteredPlots.length > 0) {
+        const selectedPlot = filteredPlots[0];
         // Try to find coordinates for the plot
         const plotDomainId = selectedPlot.domainId?._id || selectedPlot.domainId;
-        const plotDomain = filteredDomainsData.find(d => d._id === plotDomainId);
+        const plotDomain = filteredDomains.find(d => d._id === plotDomainId);
         const layoutPlot = matchFarmLayoutEntity(selectedPlot, 'plot', plotDomain);
         const polygonCoords = layoutPlot?.polygonLngLat;
         const topAnchorCoords = polygonCoords ? getPolygonTopAnchor(polygonCoords) : null;
@@ -1027,15 +1085,15 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         }
       }
       // Center map to selected domain when domain filter is applied (but not if plot is also selected)
-      else if (filterDomain !== 'all' && filteredDomainsData.length > 0) {
-        const selectedDomain = filteredDomainsData[0];
+      else if (filterDomain !== 'all' && filteredDomains.length > 0) {
+        const selectedDomain = filteredDomains[0];
         if (selectedDomain.latitude && selectedDomain.longitude) {
           // Calculate appropriate zoom level based on the number of plots in the domain
           let zoom = 14; // Default zoom for domain
-          if (filteredPlotsData.length > 0) {
+          if (filteredPlots.length > 0) {
             // If there are plots, zoom in more to show them clearly
             zoom = 15;
-            if (filteredPlotsData.length <= 3) {
+            if (filteredPlots.length <= 3) {
               // For few plots, zoom in even more
               zoom = 16;
             }
@@ -1051,19 +1109,10 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         }
       }
       
-      // Reset the filtering flag
-      filteringInProgress.current = false;
-    }, 100); // Small delay to prevent rapid successive calls
-
-    // Cleanup function to cancel timeout if component unmounts or dependencies change
-    return () => {
-      clearTimeout(filterTimeout);
-      filteringInProgress.current = false;
-    };
-  }, [
-    domains, plots, mapViewPlants, organizations, loading, user,
-    searchTerm, filterOrganization, filterType, filterPlot, filterDomain, filterCategory, filterVariety, filterStatus, urlParamsInitialized
-  ]);
+      // Update refs to track filter changes
+      lastFilterPlotRef.current = filterPlot;
+      lastFilterDomainRef.current = filterDomain;
+  }, [filterPlot, filterDomain, loading, urlParamsInitialized, mapReady, filteredPlots, filteredDomains]);
 
   // Viewport-based lazy loading handler
   const updateVisibleMarkers = useCallback((map) => {
@@ -1186,19 +1235,145 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   }, [plots, mapViewPlants, filteredPlots, filteredPlants, filterPlot, showPlots, showPlants, loading, error, domains, filteredDomains, showDomains, filterDomain, filterOrganization, filterType, filterCategory, filterVariety, filterStatus, searchTerm]);
 
 
+  // Helper function to get map bounds
+  const getMapBounds = useCallback(() => {
+    if (!mapInstanceRef.current || !mapInstanceRef.current.isStyleLoaded()) {
+      return null;
+    }
+    try {
+      const bounds = mapInstanceRef.current.getBounds();
+      if (!bounds) return null;
+      return {
+        sw: [bounds.getWest(), bounds.getSouth()],
+        ne: [bounds.getEast(), bounds.getNorth()]
+      };
+    } catch (error) {
+      console.error('Error getting map bounds:', error);
+      return null;
+    }
+  }, []);
+
+  // Ensure data is loaded when filters are active (even at low zoom)
+  useEffect(() => {
+    if (!mapReady || loading || !mapInstanceRef.current) return;
+    
+    const hasActiveFilters = filterPlot !== 'all' || filterDomain !== 'all';
+    const bounds = getMapBounds();
+    
+    // If filters are active, ensure we have the necessary data loaded
+    if (hasActiveFilters) {
+      // Mark plots as loaded if filter requires them
+      if (filterPlot !== 'all' || filterDomain !== 'all') {
+        setLoadedDataState(prev => ({ ...prev, plots: true }));
+      }
+      
+      // Load plants if plot filter is active (need to show plants in that plot)
+      if (filterPlot !== 'all' && !loadedDataState.plants && bounds) {
+        refreshMapViewData(bounds);
+        loadedBoundsRef.current = bounds;
+        setLoadedDataState(prev => ({ ...prev, plants: true }));
+      }
+    }
+  }, [filterPlot, filterDomain, mapReady, loading, loadedDataState, getMapBounds, refreshMapViewData]);
+
+  // Progressive data loading based on zoom level
+  useEffect(() => {
+    if (!mapReady || loading || !mapInstanceRef.current) return;
+
+    const currentZoom = viewState.zoom;
+    const bounds = getMapBounds();
+    
+    // Check if we need to load plots (zoom >= 12)
+    if (currentZoom >= ZOOM_THRESHOLDS.SHOW_PLOTS && !loadedDataState.plots) {
+      // Plots are loaded from ApiContext, so we just mark as loaded
+      // The plots are already available from useApi()
+      setLoadedDataState(prev => ({ ...prev, plots: true }));
+    }
+    
+    // Check if we need to load plants (zoom >= 15)
+    if (currentZoom >= ZOOM_THRESHOLDS.SHOW_PLANTS && !loadedDataState.plants && bounds) {
+      // Check if bounds have changed significantly
+      const boundsChanged = !loadedBoundsRef.current || 
+        Math.abs(loadedBoundsRef.current.sw[0] - bounds.sw[0]) > 0.01 ||
+        Math.abs(loadedBoundsRef.current.sw[1] - bounds.sw[1]) > 0.01 ||
+        Math.abs(loadedBoundsRef.current.ne[0] - bounds.ne[0]) > 0.01 ||
+        Math.abs(loadedBoundsRef.current.ne[1] - bounds.ne[1]) > 0.01;
+      
+      if (boundsChanged) {
+        // Load plants for current viewport
+        refreshMapViewData(bounds);
+        loadedBoundsRef.current = bounds;
+        setLoadedDataState(prev => ({ ...prev, plants: true }));
+      }
+    }
+    
+    // Reset loaded state when zooming out below thresholds (only if no filters active)
+    const hasActiveFilters = filterPlot !== 'all' || filterDomain !== 'all';
+    if (!hasActiveFilters) {
+      if (currentZoom < ZOOM_THRESHOLDS.SHOW_PLOTS) {
+        setLoadedDataState(prev => ({ ...prev, plots: false }));
+      }
+      if (currentZoom < ZOOM_THRESHOLDS.SHOW_PLANTS) {
+        setLoadedDataState(prev => ({ ...prev, plants: false }));
+        loadedBoundsRef.current = null;
+      }
+    }
+    
+    lastZoomRef.current = currentZoom;
+  }, [viewState.zoom, mapReady, loading, loadedDataState, getMapBounds, refreshMapViewData, filterPlot, filterDomain]);
+
   // Debounced viewport update handler
   const debouncedUpdateVisibleMarkers = useMemo(
     () => debounce((map) => updateVisibleMarkers(map), 250),
     [updateVisibleMarkers]
   );
 
-  // Handle map moveend to update visible markers
+  // Debounced handler for progressive loading on map move
+  const debouncedProgressiveLoad = useMemo(
+    () => debounce(() => {
+      if (!mapInstanceRef.current || !mapReady) return;
+      
+      const currentZoom = viewState.zoom;
+      const bounds = getMapBounds();
+      
+      // Load plants if zoomed in enough and bounds available
+      if (currentZoom >= ZOOM_THRESHOLDS.SHOW_PLANTS && bounds) {
+        const boundsChanged = !loadedBoundsRef.current || 
+          Math.abs(loadedBoundsRef.current.sw[0] - bounds.sw[0]) > 0.01 ||
+          Math.abs(loadedBoundsRef.current.sw[1] - bounds.sw[1]) > 0.01 ||
+          Math.abs(loadedBoundsRef.current.ne[0] - bounds.ne[0]) > 0.01 ||
+          Math.abs(loadedBoundsRef.current.ne[1] - bounds.ne[1]) > 0.01;
+        
+        if (boundsChanged) {
+          refreshMapViewData(bounds);
+          loadedBoundsRef.current = bounds;
+        }
+      }
+    }, 500),
+    [viewState.zoom, mapReady, getMapBounds, refreshMapViewData]
+  );
+
+  // Handle map moveend to update visible markers and trigger progressive loading
   const handleMapMoveEnd = useCallback((evt) => {
     setViewState(evt.viewState);
+    // Mark that user is interacting
+    userInteractingRef.current = true;
+    // Reset after a delay to allow auto-zoom when filters change
+    setTimeout(() => {
+      userInteractingRef.current = false;
+    }, 2000);
+    
     if (mapInstanceRef.current) {
       debouncedUpdateVisibleMarkers(mapInstanceRef.current);
+      debouncedProgressiveLoad();
     }
-  }, [debouncedUpdateVisibleMarkers]);
+  }, [debouncedUpdateVisibleMarkers, debouncedProgressiveLoad]);
+  
+  // Handle map move to track user interaction
+  const handleMapMove = useCallback((evt) => {
+    setViewState(evt.viewState);
+    userInteractingRef.current = true;
+  }, []);
 
   // Event handlers
   const handleMarkerClick = useCallback((item, type) => {
@@ -1210,10 +1385,10 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         zoom = 13;
         break;
       case 'plot':
-        zoom = Math.max(PLOT_FOCUS_ZOOM, 15);
+        zoom = Math.max(PLOT_FOCUS_ZOOM, 14);
         break;
       case 'plant':
-        zoom = 17;
+        zoom = 22; // Increased zoom for better plant detail view
         break;
       default:
         zoom = 16;
@@ -1831,8 +2006,10 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                 }
               }}
               {...viewState}
-              onMove={evt => setViewState(evt.viewState)}
+              onMove={handleMapMove}
               onMoveEnd={handleMapMoveEnd}
+              minZoom={8}
+              maxZoom={22}
               onClick={(event) => {
                 handleMapClick(event);
                 // Handle GeoJSON layer clicks
@@ -2035,7 +2212,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
             })()}
 
             {/* Plot Boundaries */}
-            {showPlots && filteredPlots.map(plot => {
+            {showPlots && viewState.zoom >= ZOOM_THRESHOLDS.SHOW_PLOTS && filteredPlots.map(plot => {
               const plotDomainId = plot.domainId?._id || plot.domainId;
               const domain = filteredDomains.find(d => d._id === plotDomainId);
               const hasCoordinates = plot.latitude && plot.longitude;
@@ -2090,7 +2267,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
             {/* Plot Markers - Separate GeoJSON Source (like Domains) */}
             {(() => {
-              if (!showPlots || filteredPlots.length === 0) return null;
+              if (!showPlots || viewState.zoom < ZOOM_THRESHOLDS.SHOW_PLOTS || filteredPlots.length === 0) return null;
               
               // Use filteredPlots to respect filtering
               const plotMarkers = filteredPlots
@@ -2220,7 +2397,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
             {/* Plant Markers - Separate GeoJSON Source */}
             {(() => {
-              if (!showPlants || filteredPlants.length === 0) return null;
+              if (!showPlants || viewState.zoom < ZOOM_THRESHOLDS.SHOW_PLANTS || filteredPlants.length === 0) return null;
               
               const plantMarkers = filteredPlants
                 .map(plant => {

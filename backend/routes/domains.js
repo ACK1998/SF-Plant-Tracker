@@ -4,14 +4,14 @@ const Domain = require('../models/Domain');
 const { auth, authorize } = require('../middleware/auth');
 
 // @route   GET /api/domains
-// @desc    Get all domains (filtered by user role)
+// @desc    Get all domains (filtered by user role, with optional bounds filtering)
 // @access  Private (super_admin, org_admin, domain_admin)
 router.get('/', auth, authorize('super_admin', 'org_admin', 'domain_admin'), async (req, res) => {
   try {
     console.log('Domain GET - Request query:', req.query);
     console.log('Domain GET - User:', req.user._id);
     
-    const { organizationId, page = 1, limit = 10 } = req.query;
+    const { organizationId, page = 1, limit = 10, swLng, swLat, neLng, neLat } = req.query;
     const filter = { isActive: true };
     
     // Apply role-based filtering
@@ -30,6 +30,18 @@ router.get('/', auth, authorize('super_admin', 'org_admin', 'domain_admin'), asy
           (req.user.role === 'org_admin' && organizationId === req.user.organizationId.toString())) {
         filter.organizationId = organizationId;
       }
+    }
+
+    // Optional bounds filtering (viewport-based)
+    if (swLng && swLat && neLng && neLat) {
+      filter.longitude = {
+        $gte: parseFloat(swLng),
+        $lte: parseFloat(neLng)
+      };
+      filter.latitude = {
+        $gte: parseFloat(swLat),
+        $lte: parseFloat(neLat)
+      };
     }
 
     console.log('Domain GET - Filter:', filter);

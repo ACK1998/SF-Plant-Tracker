@@ -167,9 +167,20 @@ class ApiService {
     }
   }
 
-  async getMapViewPlants() {
+  async getMapViewPlants(bounds = null) {
     try {
-      const result = await this.request('/plants/mapview');
+      let endpoint = '/plants/mapview';
+      if (bounds) {
+        // bounds format: { sw: [lng, lat], ne: [lng, lat] }
+        const params = new URLSearchParams({
+          swLng: bounds.sw[0],
+          swLat: bounds.sw[1],
+          neLng: bounds.ne[0],
+          neLat: bounds.ne[1]
+        });
+        endpoint = `${endpoint}?${params.toString()}`;
+      }
+      const result = await this.request(endpoint);
       console.log('API Service: getMapViewPlants result:', result);
       return result;
     } catch (error) {
@@ -357,6 +368,17 @@ class ApiService {
     try {
       // Add default pagination if not provided
       const defaultParams = { page: 1, limit: 10, ...params };
+      
+      // Handle bounds if provided
+      if (params.bounds) {
+        const { bounds, ...otherParams } = params;
+        defaultParams.swLng = bounds.sw[0];
+        defaultParams.swLat = bounds.sw[1];
+        defaultParams.neLng = bounds.ne[0];
+        defaultParams.neLat = bounds.ne[1];
+        Object.assign(defaultParams, otherParams);
+      }
+      
       const queryString = new URLSearchParams(defaultParams).toString();
       const endpoint = `/domains?${queryString}`;
       return await this.request(endpoint);
@@ -412,6 +434,17 @@ class ApiService {
     try {
       // Fetch enough plots for full-map rendering unless caller overrides
       const defaultParams = { page: 1, limit: 500, ...params };
+      
+      // Handle bounds if provided
+      if (params.bounds) {
+        const { bounds, ...otherParams } = params;
+        defaultParams.swLng = bounds.sw[0];
+        defaultParams.swLat = bounds.sw[1];
+        defaultParams.neLng = bounds.ne[0];
+        defaultParams.neLat = bounds.ne[1];
+        Object.assign(defaultParams, otherParams);
+      }
+      
       const queryString = new URLSearchParams(defaultParams).toString();
       const endpoint = `/plots?${queryString}`;
       return await this.request(endpoint);

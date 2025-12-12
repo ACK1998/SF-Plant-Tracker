@@ -224,7 +224,7 @@ router.get('/dashboard', auth, async (req, res) => {
 });
 
 // @route   GET /api/plants/mapview
-// @desc    Get plants for map view (no filtering, all data)
+// @desc    Get plants for map view (with optional bounds filtering)
 // @access  Private
 router.get('/mapview', auth, async (req, res) => {
   try {
@@ -237,6 +237,20 @@ router.get('/mapview', auth, async (req, res) => {
       filter.organizationId = req.user.organizationId;
     } else if (req.user.role === 'application_user') {
       filter.organizationId = req.user.organizationId;
+    }
+    
+    // Optional bounds filtering (viewport-based)
+    const { swLng, swLat, neLng, neLat } = req.query;
+    if (swLng && swLat && neLng && neLat) {
+      // Filter plants within viewport bounds
+      filter.longitude = {
+        $gte: parseFloat(swLng),
+        $lte: parseFloat(neLng)
+      };
+      filter.latitude = {
+        $gte: parseFloat(swLat),
+        $lte: parseFloat(neLat)
+      };
     }
     
     const plants = await Plant.find(filter)

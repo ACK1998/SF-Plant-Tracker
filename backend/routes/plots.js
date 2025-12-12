@@ -4,11 +4,11 @@ const Plot = require('../models/Plot');
 const { auth, authorize } = require('../middleware/auth');
 
 // @route   GET /api/plots
-// @desc    Get all plots
+// @desc    Get all plots (with optional bounds filtering)
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const { organizationId, domainId, page = 1, limit = 10 } = req.query;
+    const { organizationId, domainId, page = 1, limit = 10, swLng, swLat, neLng, neLat } = req.query;
     const filter = { isActive: true };
     
     // Apply role-based filtering
@@ -27,6 +27,18 @@ router.get('/', auth, async (req, res) => {
     // Apply additional filters from query parameters (but don't override role-based organizationId)
     if (domainId && domainId !== 'undefined' && domainId !== 'null') {
       filter.domainId = domainId;
+    }
+
+    // Optional bounds filtering (viewport-based)
+    if (swLng && swLat && neLng && neLat) {
+      filter.longitude = {
+        $gte: parseFloat(swLng),
+        $lte: parseFloat(neLng)
+      };
+      filter.latitude = {
+        $gte: parseFloat(swLat),
+        $lte: parseFloat(neLat)
+      };
     }
 
     const plots = await Plot.find(filter)

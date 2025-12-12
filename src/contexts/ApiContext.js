@@ -505,16 +505,25 @@ export const ApiProvider = ({ children }) => {
             return;
           }
           
-          // Append new plants to existing ones
-          setPlantsInfiniteScroll(prevState => ({
-            ...prevState,
-            currentPage: prevState.currentPage + 1,
-            loadingMore: false,
-            allPlants: [...prevState.allPlants, ...newPlants]
-          }));
+          // Deduplicate new plants by _id to prevent duplicates
+          setPlantsInfiniteScroll(prevState => {
+            const existingPlantIds = new Set(prevState.allPlants.map(p => p._id?.toString()));
+            const uniqueNewPlants = newPlants.filter(p => p._id && !existingPlantIds.has(p._id.toString()));
+            
+            return {
+              ...prevState,
+              currentPage: prevState.currentPage + 1,
+              loadingMore: false,
+              allPlants: [...prevState.allPlants, ...uniqueNewPlants]
+            };
+          });
           
-          // Update the main plants state
-          setPlants(prevPlants => [...prevPlants, ...newPlants]);
+          // Update the main plants state (deduplicated)
+          setPlants(prevPlants => {
+            const existingIds = new Set(prevPlants.map(p => p._id?.toString()));
+            const uniqueNewPlants = newPlants.filter(p => p._id && !existingIds.has(p._id.toString()));
+            return [...prevPlants, ...uniqueNewPlants];
+          });
         })
         .catch(error => {
           console.error('Failed to load more plants:', error);
@@ -546,12 +555,22 @@ export const ApiProvider = ({ children }) => {
       const response = await api.getPlants(params);
       const plantsData = response.data || [];
       
-      setPlants(plantsData);
+      // Deduplicate plants by _id (in case API returns duplicates)
+      const uniquePlants = [];
+      const seenIds = new Set();
+      for (const plant of plantsData) {
+        if (plant._id && !seenIds.has(plant._id.toString())) {
+          seenIds.add(plant._id.toString());
+          uniquePlants.push(plant);
+        }
+      }
+      
+      setPlants(uniquePlants);
       setPlantsInfiniteScroll({
         currentPage: 2, // Next page will be 2
-        hasMore: plantsData.length === 50, // If we got 50 items, there might be more
+        hasMore: uniquePlants.length === 50, // If we got 50 items, there might be more
         loadingMore: false,
-        allPlants: plantsData
+        allPlants: uniquePlants
       });
       
     } catch (error) {

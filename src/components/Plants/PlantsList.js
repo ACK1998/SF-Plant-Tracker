@@ -1064,6 +1064,15 @@ function PlantsList({ user, selectedState }) {
             </div>
           </div>
 
+          {/* Plant Count Display */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Showing <span className="font-semibold text-plant-green-600 dark:text-plant-green-400">{plants.length}</span> {plants.length === 1 ? 'plant' : 'plants'}
+              </span>
+            </div>
+          </div>
+
           {/* Collapsible Filters */}
           <div className={`transition-all duration-300 ease-in-out relative ${
             filtersExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0 overflow-hidden'

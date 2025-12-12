@@ -19,6 +19,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedPlantType, setSelectedPlantType] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
@@ -33,6 +34,15 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(showAddCategoryModalProp);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ show: false, item: null, type: '' });
+
+  // Debounce search term to prevent re-renders on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Handle URL parameter changes
   useEffect(() => {
@@ -251,7 +261,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
       }
       
       // Build parameters for plant types API
-      const plantTypesParams = { search: searchTerm };
+      const plantTypesParams = { search: debouncedSearchTerm };
       if (categoryFilter !== 'all') {
         plantTypesParams.category = categoryFilter;
       }
@@ -260,7 +270,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
       const cacheBuster = Date.now();
       const [typesRes, varietiesRes, categoriesRes] = await Promise.all([
         api.getAllPlantTypes({ ...plantTypesParams, _t: cacheBuster }), // Fetch all plant types
-        api.getAllPlantVarieties({ search: searchTerm, _t: cacheBuster }), // Fetch all varieties
+        api.getAllPlantVarieties({ search: debouncedSearchTerm, _t: cacheBuster }), // Fetch all varieties
         api.getAllCategories() // Fetch all categories
       ]);
 
@@ -301,7 +311,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     } finally {
       setLoading(false);
     }
-  }, [api, searchTerm, categoryFilter]);
+  }, [api, debouncedSearchTerm, categoryFilter]);
 
   useEffect(() => {
     loadData();
@@ -625,8 +635,8 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   // Filter and group based on search and category filter
   const filteredGroupedPlantTypes = Object.keys(groupedPlantTypes).reduce((acc, category) => {
     const filteredTypes = groupedPlantTypes[category].filter(type => {
-      const matchesSearch = type.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           type.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = type.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                           type.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'all' || category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
