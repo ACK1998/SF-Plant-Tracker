@@ -392,38 +392,18 @@ function PlantsList({ user, selectedState }) {
 
   // Filter domains and plots based on user role
   const getAvailableDomains = () => {
-    // Always prioritize domains from plants data since that's what's actually displayed
-    // This ensures the dropdown matches what users see in the plant cards
-    let allDomains = domainsFromPlants;
+    // Use all domains from API to show all available domains in the filter
+    // This ensures users can see and filter by all domains, not just those with plants
+    let allDomains = domains;
     
-    // If no domains from plants data, fall back to API domains
+    // If API domains are empty, fall back to domains from plants data
     if (allDomains.length === 0) {
-      allDomains = domains;
+      allDomains = domainsFromPlants;
     }
     
-
-    
-    if (!user || !user.role) return allDomains;
-    
-    // Super admin can see all domains
-    if (user.role === 'super_admin') {
-      return allDomains;
-    }
-    
-    // For domains derived from plants, they might not have organizationId
-    // In this case, we should show them to all users in the organization
-    const userOrgId = user.organizationId?._id || user.organizationId;
-    const filteredDomains = allDomains.filter(domain => {
-      // If domain doesn't have organizationId (from plants data), show it
-      if (!domain.organizationId) {
-        return true;
-      }
-      
-      const domainOrgId = domain.organizationId?._id || domain.organizationId;
-      const matches = String(domainOrgId) === String(userOrgId);
-      return matches;
-    });
-    return filteredDomains;
+    // Return all domains for the filter dropdown
+    // The actual plant filtering by organization will happen when filtering plants
+    return allDomains;
   };
 
 

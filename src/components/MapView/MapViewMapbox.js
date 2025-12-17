@@ -36,7 +36,7 @@ const PLOT_FOCUS_ZOOM = 18; // Zoom level equivalent to ~8x magnification for pl
 // Zoom thresholds for progressive loading
 const ZOOM_THRESHOLDS = {
   SHOW_PLOTS: 12,    // Show plots at zoom 12+
-  SHOW_PLANTS: 15    // Show plants at zoom 15+
+  SHOW_PLANTS: 16    // Show plants at zoom 15+
 };
 
 const normalizeIdentifier = (value) => {
