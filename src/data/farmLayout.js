@@ -76,8 +76,8 @@ const rawFeatures = {
     }),
     ...createGridFeatures({
       codes: generateRange(300, 347),
-      startX: 10250,
-      startY: 16000,
+      startX: 1800,
+      startY: 7000,
       columns: 12,
       size: 220,
       gapX: 25,

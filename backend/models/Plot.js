@@ -55,6 +55,20 @@ const plotSchema = new mongoose.Schema({
     min: -180,
     max: 180
   },
+  ownerName: {
+    type: String,
+    trim: true,
+    required: false
+  },
+  ownerMobile: {
+    type: String,
+    trim: true,
+    required: false
+  },
+  registrationDate: {
+    type: Date,
+    required: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

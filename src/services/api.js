@@ -433,7 +433,7 @@ class ApiService {
   async getPlots(params = {}) {
     try {
       // Fetch enough plots for full-map rendering unless caller overrides
-      const defaultParams = { page: 1, limit: 500, ...params };
+      const defaultParams = { page: 1, limit: 1000, ...params };
       
       // Handle bounds if provided
       if (params.bounds) {

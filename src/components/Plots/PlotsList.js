@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MapPin, Building, Droplets, Sun, Navigation } from 'lucide-react';
+import { Plus, Search, MapPin, Building, Droplets, Sun, Navigation, User, Phone, Calendar } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../contexts/ApiContext';
 import ConfirmationDialog from '../common/ConfirmationDialog';
@@ -401,6 +401,24 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
               </p>
 
               <div className="space-y-2 mb-4">
+                {plot.ownerName && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <User size={16} />
+                    <span className="font-medium">{plot.ownerName}</span>
+                  </div>
+                )}
+                {plot.ownerMobile && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Phone size={16} />
+                    <span>{plot.ownerMobile}</span>
+                  </div>
+                )}
+                {plot.registrationDate && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Calendar size={16} />
+                    <span>Reg: {new Date(plot.registrationDate).toLocaleDateString()}</span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                   <Building size={16} />
                   <span>{getOrganizationName(plot.organizationId)}</span>
@@ -414,11 +432,11 @@ function PlotsList({ user, selectedState, showAddModal: showAddModalProp = false
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                   <Droplets size={16} />
-                  <span>{plot.irrigationType}</span>
+                  <span>{plot.irrigationType || '-'}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                   <Sun size={16} />
-                  <span>{plot.sunExposure}</span>
+                  <span>{plot.sunExposure || '-'}</span>
                 </div>
               </div>
 
@@ -514,7 +532,10 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
     domainId: '',
     organizationId: isSuperAdmin ? '' : userOrgId || '',
     latitude: '',
-    longitude: ''
+    longitude: '',
+    ownerName: '',
+    ownerMobile: '',
+    registrationDate: ''
   });
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -573,6 +594,7 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
       size: formData.size ? Number(formData.size) : 0,
       latitude: formData.latitude ? Number(formData.latitude) : null,
       longitude: formData.longitude ? Number(formData.longitude) : null,
+      registrationDate: formData.registrationDate ? new Date(formData.registrationDate) : null,
     };
     
     onAdd(submitData);
@@ -636,6 +658,49 @@ function AddPlotModal({ onClose, onAdd, domains, organizations, user, plots }) {
               rows={3}
               className="input-field"
               placeholder="Enter plot description"
+            />
+          </div>
+
+          {/* Owner Information */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Owner Name
+              </label>
+              <input
+                type="text"
+                name="ownerName"
+                value={formData.ownerName}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Enter owner name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Owner Mobile
+              </label>
+              <input
+                type="text"
+                name="ownerMobile"
+                value={formData.ownerMobile}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Enter mobile number"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Registration Date
+            </label>
+            <input
+              type="date"
+              name="registrationDate"
+              value={formData.registrationDate}
+              onChange={handleChange}
+              className="input-field"
             />
           </div>
 
@@ -831,7 +896,10 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
     domainId: plot.domainId?._id || plot.domainId || '',
     organizationId: plot.organizationId?._id || plot.organizationId || '',
     latitude: plot.latitude || '',
-    longitude: plot.longitude || ''
+    longitude: plot.longitude || '',
+    ownerName: plot.ownerName || '',
+    ownerMobile: plot.ownerMobile || '',
+    registrationDate: plot.registrationDate ? new Date(plot.registrationDate).toISOString().split('T')[0] : ''
   });
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -890,6 +958,7 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
       size: formData.size ? Number(formData.size) : 0,
       latitude: formData.latitude ? Number(formData.latitude) : null,
       longitude: formData.longitude ? Number(formData.longitude) : null,
+      registrationDate: formData.registrationDate ? new Date(formData.registrationDate) : null,
     };
     
     onUpdate({ ...plot, ...updateData });
@@ -977,6 +1046,49 @@ function EditPlotModal({ plot, onClose, onUpdate, domains, organizations, user, 
               rows={3}
               className="input-field"
               placeholder="Enter plot description"
+            />
+          </div>
+
+          {/* Owner Information */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Owner Name
+              </label>
+              <input
+                type="text"
+                name="ownerName"
+                value={formData.ownerName}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Enter owner name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Owner Mobile
+              </label>
+              <input
+                type="text"
+                name="ownerMobile"
+                value={formData.ownerMobile}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Enter mobile number"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Registration Date
+            </label>
+            <input
+              type="date"
+              name="registrationDate"
+              value={formData.registrationDate}
+              onChange={handleChange}
+              className="input-field"
             />
           </div>
 

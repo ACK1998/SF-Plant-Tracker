@@ -907,10 +907,12 @@ body {
   color: #f9fafb;
 }
 
-/* Mapbox popup styles */
-.mapbox-popup .mapboxgl-popup-content {
-  background: white !important;
-  background-color: white !important;
+/* Mapbox popup styles - Force white background */
+.mapboxgl-popup-content,
+.mapbox-popup .mapboxgl-popup-content,
+.mapboxgl-popup .mapboxgl-popup-content {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
   opacity: 1 !important;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
@@ -924,7 +926,20 @@ body {
   margin-bottom: 10px;
 }
 
-.dark .mapbox-popup .mapboxgl-popup-content {
+/* Force all children to have white background */
+.mapboxgl-popup-content *,
+.mapbox-popup .mapboxgl-popup-content * {
+  background-color: transparent;
+}
+
+.mapboxgl-popup-content > div,
+.mapbox-popup .mapboxgl-popup-content > div {
+  background-color: #ffffff !important;
+}
+
+.dark .mapboxgl-popup-content,
+.dark .mapbox-popup .mapboxgl-popup-content,
+.dark .mapboxgl-popup .mapboxgl-popup-content {
   background: #1f2937 !important;
   background-color: #1f2937 !important;
   opacity: 1 !important;
@@ -937,6 +952,11 @@ body {
   min-width: 280px;
   max-width: 320px;
   width: auto;
+}
+
+.dark .mapboxgl-popup-content > div,
+.dark .mapbox-popup .mapboxgl-popup-content > div {
+  background-color: #1f2937 !important;
 }
 
 .mapbox-popup .mapboxgl-popup-tip {
@@ -986,8 +1006,13 @@ body {
   padding-bottom: 10px;
   position: relative;
   min-width: 280px;
-  background: transparent;
+  background-color: #ffffff !important;
   opacity: 1 !important;
+  border-radius: 16px;
+}
+
+.dark .popup-content-wrapper {
+  background-color: #1f2937 !important;
 }
 
 .popup-content {
@@ -996,6 +1021,11 @@ body {
   z-index: 1000;
   min-width: 280px;
   opacity: 1 !important;
+  background-color: #ffffff !important;
+}
+
+.dark .popup-content {
+  background-color: #1f2937 !important;
 }
 
 /* Ensure popup container has proper spacing */
@@ -1077,6 +1107,12 @@ body {
   padding: 16px;
   max-height: 400px;
   overflow-y: auto;
+  background-color: #ffffff !important;
+  border-radius: 0 0 16px 16px;
+}
+
+.dark .popup-body {
+  background-color: #1f2937 !important;
 }
 
 .popup-section {

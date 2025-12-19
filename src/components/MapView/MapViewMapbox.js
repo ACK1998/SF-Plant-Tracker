@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Map, NavigationControl, Source, Layer, Popup, GeolocateControl, Marker } from 'react-map-gl/mapbox';
+import QRCode from 'qrcode';
 import { Search, Filter, User, Map as MapIcon, Leaf, MapPin, Sprout, X, Navigation, Calendar, User as UserIcon, Ruler, Building, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApi } from '../../contexts/ApiContext';
 import { useMapView } from '../../contexts/MapViewContext';
@@ -36,7 +37,7 @@ const PLOT_FOCUS_ZOOM = 18; // Zoom level equivalent to ~8x magnification for pl
 // Zoom thresholds for progressive loading
 const ZOOM_THRESHOLDS = {
   SHOW_PLOTS: 12,    // Show plots at zoom 12+
-  SHOW_PLANTS: 16    // Show plants at zoom 15+
+  SHOW_PLANTS: 14    // Show plants at zoom 14+
 };
 
 const normalizeIdentifier = (value) => {
@@ -238,6 +239,19 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   // Selected item state for popup
   const [selectedItem, setSelectedItem] = useState(null);
   const [popupLocation, setPopupLocation] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState(null);
+
+  // Generate QR code when plant is selected
+  useEffect(() => {
+    if (selectedItem?.type === 'plant' && selectedItem?.data?._id) {
+      const plantUrl = `${window.location.origin}/plants/${selectedItem.data._id}`;
+      QRCode.toDataURL(plantUrl, { width: 150, margin: 1 })
+        .then(url => setQrCodeUrl(url))
+        .catch(err => console.error('QR Code error:', err));
+    } else {
+      setQrCodeUrl(null);
+    }
+  }, [selectedItem]);
 
   // Map ready state for conditional rendering
   const [mapReady, setMapReady] = useState(false);
@@ -368,323 +382,371 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     switch (type) {
       case 'plant':
         return (
-          <div className="popup-content-wrapper">
-            <div className="popup-content">
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', minWidth: '280px', padding: '0' }}>
             {/* Header */}
-            <div className="popup-header">
-              <div className="popup-icon bg-green-500">
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '20px 16px 12px 16px',
+              background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+              borderBottom: '1px solid #a7f3d0',
+              borderRadius: '16px 16px 0 0'
+            }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                backgroundColor: '#10b981',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}>
                 {findPlantEmoji(data.type, data.category)}
               </div>
-              <div className="popup-title-section">
-                <h3 className="popup-title">{data.name}</h3>
-                <p className="popup-subtitle">Plant Details</p>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937', margin: '0 0 2px 0' }}>{data.name}</h3>
+                <p style={{ fontSize: '12px', color: '#059669', margin: 0, fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Details</p>
               </div>
             </div>
             
             {/* Content */}
-            <div className="popup-body">
-              <div className="popup-section">
-                <div className="popup-item">
-                  <Leaf className="popup-item-icon text-green-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Plant Type</span>
-                    <span className="popup-item-value">{data.type || 'N/A'}</span>
+            <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '0 0 16px 16px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Leaf style={{ width: '20px', height: '20px', color: '#059669', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Type</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.type || 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <Sprout className="popup-item-icon text-green-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Variety</span>
-                    <span className="popup-item-value">{data.variety || 'N/A'}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Sprout style={{ width: '20px', height: '20px', color: '#059669', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Variety</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.variety || 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <div className="popup-item-icon">
-                    <div className={`w-3 h-3 rounded-full ${
-                      data.health === 'Good' ? 'bg-green-500' :
-                      data.health === 'Fair' ? 'bg-yellow-500' :
-                      'bg-red-500'
-                    }`}></div>
-                  </div>
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Health Status</span>
-                    <span className={`popup-item-value font-medium ${
-                      data.health === 'Good' ? 'text-green-600' :
-                      data.health === 'Fair' ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>{data.health || 'N/A'}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Heart style={{ width: '20px', height: '20px', color: data.health === 'Good' ? '#10b981' : data.health === 'Fair' ? '#f59e0b' : '#ef4444', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Health Status</span>
+                    <span style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '700',
+                      color: data.health === 'Good' ? '#059669' : data.health === 'Fair' ? '#d97706' : '#dc2626'
+                    }}>{data.health || 'N/A'}</span>
                   </div>
                 </div>
               </div>
               
-              <div className="popup-section">
-                <div className="popup-item">
-                  <UserIcon className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Created By</span>
-                    <span className="popup-item-value">{data.createdBy?.name || data.planter || 'N/A'}</span>
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <UserIcon style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdBy?.name || data.planter || 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <Calendar className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Planted Date</span>
-                    <span className="popup-item-value">
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Calendar style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Planted Date</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
                       {data.plantedDate ? new Date(data.plantedDate).toLocaleDateString() : 
                        data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <MapPin className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Plot Location</span>
-                    <span className="popup-item-value">{getPlotName(data.plotId) || 'N/A'}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                  <MapPin style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plot Location</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{getPlotName(data.plotId) || 'N/A'}</span>
                   </div>
                 </div>
               </div>
               
               {/* Additional Details */}
               {(data.category || data.growthStage || data.notes) && (
-                <div className="popup-section">
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', marginTop: '8px' }}>
                   {data.category && (
-                    <div className="popup-item">
-                      <div className="popup-item-icon">
-                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                      <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></div>
                       </div>
-                      <div className="popup-item-content">
-                        <span className="popup-item-label">Category</span>
-                        <span className="popup-item-value">{data.category}</span>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</span>
+                        <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.category}</span>
                       </div>
                     </div>
                   )}
                   
                   {data.growthStage && (
-                    <div className="popup-item">
-                      <div className="popup-item-icon">
-                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                      <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#f97316' }}></div>
                       </div>
-                      <div className="popup-item-content">
-                        <span className="popup-item-label">Growth Stage</span>
-                        <span className="popup-item-value">{data.growthStage}</span>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Growth Stage</span>
+                        <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.growthStage}</span>
                       </div>
                     </div>
                   )}
                   
                   {data.notes && (
-                    <div className="popup-item">
-                      <div className="popup-item-icon">
-                        <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                      <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#6b7280' }}></div>
                       </div>
-                      <div className="popup-item-content">
-                        <span className="popup-item-label">Notes</span>
-                        <span className="popup-item-value text-xs">{data.notes}</span>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Notes</span>
+                        <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{data.notes}</span>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-            </div>
+              
+              {/* QR Code Section */}
+              {qrCodeUrl && (
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', marginTop: '8px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Scan QR Code</span>
+                  <img src={qrCodeUrl} alt="Plant QR Code" style={{ width: '120px', height: '120px', margin: '0 auto', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                </div>
+              )}
             </div>
           </div>
         );
 
       case 'plot':
         return (
-          <div className="popup-content-wrapper">
-            <div className="popup-content">
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', minWidth: '280px', padding: '0' }}>
             {/* Header */}
-            <div className="popup-header">
-              <div className="popup-icon bg-blue-500">🏞️</div>
-              <div className="popup-title-section">
-                <h3 className="popup-title">{data.name}</h3>
-                <p className="popup-subtitle">Plot Details</p>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '16px',
+              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+              borderBottom: '1px solid #93c5fd',
+              borderRadius: '16px 16px 0 0'
+            }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                backgroundColor: '#3b82f6',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+              }}>
+                🏞️
+              </div>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937', margin: '0 0 2px 0' }}>{data.name}</h3>
+                <p style={{ fontSize: '12px', color: '#2563eb', margin: 0, fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plot Details</p>
               </div>
             </div>
             
             {/* Content */}
-            <div className="popup-body">
-              <div className="popup-section">
-                <div className="popup-item">
-                  <Ruler className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Plot Size</span>
-                    <span className="popup-item-value">{data.size ? `${data.size} sq ft` : 'N/A'}</span>
-                  </div>
-                </div>
-                
-                <div className="popup-item">
-                  <Building className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Domain</span>
-                    <span className="popup-item-value">{getDomainName(data.domainId) || 'N/A'}</span>
-                  </div>
-                </div>
-                
-                <div className="popup-item">
-                  <div className="popup-item-icon">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  </div>
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Soil Type</span>
-                    <span className="popup-item-value">{data.soilType || 'N/A'}</span>
-                  </div>
+            <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '0 0 16px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <Ruler style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plot Size</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.size ? `${data.size} sq ft` : 'N/A'}</span>
                 </div>
               </div>
               
-              <div className="popup-section">
-                <div className="popup-item">
-                  <UserIcon className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Created By</span>
-                    <span className="popup-item-value">{data.createdBy?.name || 'N/A'}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <Building style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Domain</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{getDomainName(data.domainId) || 'N/A'}</span>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Soil Type</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.soilType || 'N/A'}</span>
+                </div>
+              </div>
+              
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <UserIcon style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdBy?.name || 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <Calendar className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Created Date</span>
-                    <span className="popup-item-value">
-                      {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Calendar style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created Date</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <MapPin className="popup-item-icon text-blue-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Organization</span>
-                    <span className="popup-item-value">{getOrganizationName(data.organizationId) || 'N/A'}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                  <MapPin style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Organization</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{getOrganizationName(data.organizationId) || 'N/A'}</span>
                   </div>
                 </div>
               </div>
               
               {/* Additional Details */}
               {(data.description || data.cropType) && (
-                <div className="popup-section">
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
                   {data.description && (
-                    <div className="popup-item">
-                      <div className="popup-item-icon">
-                        <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                      <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#6b7280' }}></div>
                       </div>
-                      <div className="popup-item-content">
-                        <span className="popup-item-label">Description</span>
-                        <span className="popup-item-value text-xs">{data.description}</span>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</span>
+                        <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{data.description}</span>
                       </div>
                     </div>
                   )}
                   
                   {data.cropType && (
-                    <div className="popup-item">
-                      <div className="popup-item-icon">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                      <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
                       </div>
-                      <div className="popup-item-content">
-                        <span className="popup-item-label">Crop Type</span>
-                        <span className="popup-item-value">{data.cropType}</span>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Crop Type</span>
+                        <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.cropType}</span>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-            </div>
             </div>
           </div>
         );
 
       case 'domain':
         return (
-          <div className="popup-content-wrapper">
-            <div className="popup-content">
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', minWidth: '280px', padding: '0' }}>
             {/* Header */}
-            <div className="popup-header">
-              <div className="popup-icon bg-purple-500">🏢</div>
-              <div className="popup-title-section">
-                <h3 className="popup-title">{data.name}</h3>
-                <p className="popup-subtitle">Domain Details</p>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '16px',
+              background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+              borderBottom: '1px solid #c4b5fd',
+              borderRadius: '16px 16px 0 0'
+            }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                backgroundColor: '#8b5cf6',
+                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+              }}>
+                🏢
+              </div>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937', margin: '0 0 2px 0' }}>{data.name}</h3>
+                <p style={{ fontSize: '12px', color: '#7c3aed', margin: 0, fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Domain Details</p>
               </div>
             </div>
             
             {/* Content */}
-            <div className="popup-body">
-              <div className="popup-section">
-                <div className="popup-item">
-                  <Ruler className="popup-item-icon text-purple-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Domain Size</span>
-                    <span className="popup-item-value">{data.size ? `${data.size} sq ft` : 'N/A'}</span>
-                  </div>
-                </div>
-                
-                <div className="popup-item">
-                  <Building className="popup-item-icon text-purple-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Organization</span>
-                    <span className="popup-item-value">{getOrganizationName(data.organizationId) || 'N/A'}</span>
-                  </div>
-                </div>
-                
-                <div className="popup-item">
-                  <MapPin className="popup-item-icon text-purple-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Location</span>
-                    <span className="popup-item-value">{data.location || 'N/A'}</span>
-                  </div>
+            <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '0 0 16px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <Ruler style={{ width: '20px', height: '20px', color: '#7c3aed', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Domain Size</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.size ? `${data.size} sq ft` : 'N/A'}</span>
                 </div>
               </div>
               
-              <div className="popup-section">
-                <div className="popup-item">
-                  <UserIcon className="popup-item-icon text-purple-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Created By</span>
-                    <span className="popup-item-value">{data.createdBy?.name || 'N/A'}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <Building style={{ width: '20px', height: '20px', color: '#7c3aed', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Organization</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{getOrganizationName(data.organizationId) || 'N/A'}</span>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                <MapPin style={{ width: '20px', height: '20px', color: '#7c3aed', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Location</span>
+                  <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
+                    {data.latitude && data.longitude 
+                      ? `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}` 
+                      : (data.location || 'N/A')}
+                  </span>
+                </div>
+              </div>
+              
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <UserIcon style={{ width: '20px', height: '20px', color: '#7c3aed', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdBy?.name || 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <Calendar className="popup-item-icon text-purple-600" />
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Created Date</span>
-                    <span className="popup-item-value">
-                      {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
+                  <Calendar style={{ width: '20px', height: '20px', color: '#7c3aed', flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created Date</span>
+                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
                 
-                <div className="popup-item">
-                  <div className="popup-item-icon">
-                    <div className={`w-3 h-3 rounded-full ${data.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                  <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: data.isActive ? '#10b981' : '#ef4444' }}></div>
                   </div>
-                  <div className="popup-item-content">
-                    <span className="popup-item-label">Status</span>
-                    <span className={`popup-item-value font-medium ${data.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                      {data.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: data.isActive ? '#059669' : '#dc2626' }}>{data.isActive ? 'Active' : 'Inactive'}</span>
                   </div>
                 </div>
               </div>
               
               {/* Additional Details */}
               {data.description && (
-                <div className="popup-section">
-                  <div className="popup-item">
-                    <div className="popup-item-icon">
-                      <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
+                    <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#6b7280' }}></div>
                     </div>
-                    <div className="popup-item-content">
-                      <span className="popup-item-label">Description</span>
-                      <span className="popup-item-value text-xs">{data.description}</span>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</span>
+                      <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{data.description}</span>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
             </div>
           </div>
         );
@@ -811,6 +873,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     let filteredDomainsData = domains;
     let filteredPlotsData = shouldLoadPlots ? plots : [];
     let filteredPlantsData = shouldLoadPlants ? mapViewPlants : [];
+    
 
     // TEMPORARILY DISABLE ROLE-BASED FILTERING FOR TESTING
     // TODO: Re-enable after confirming markers render correctly
@@ -960,6 +1023,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         const plantPlotId = p.plotId?._id || p.plotId;
         return domainPlotIds.includes(String(plantPlotId));
       });
+      
     }
 
     if (filterCategory !== 'all') {
@@ -1038,6 +1102,39 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   const filteredDomains = filteredDomainsData;
   const filteredPlots = filteredPlotsData;
   const filteredPlants = filteredPlantsData;
+
+  // Memoize plant markers with emoji for HTML rendering
+  const plantMarkersWithEmoji = useMemo(() => {
+    if (!showPlants || filteredPlants.length === 0) return [];
+    
+    return filteredPlants
+      .map(plant => {
+        const hasDirectCoordinates = plant.latitude && plant.longitude;
+        let coords = null;
+        
+        if (hasDirectCoordinates) {
+          coords = { longitude: plant.longitude, latitude: plant.latitude };
+        } else {
+          const plantPlotId = plant.plotId?._id || plant.plotId;
+          const plot = plots.find(p => p._id === plantPlotId);
+          if (plot && plot.latitude && plot.longitude) {
+            coords = { longitude: plot.longitude, latitude: plot.latitude };
+          }
+        }
+        
+        if (!coords) return null;
+        
+        // Use emoji from DB first, then lookup by type/name
+        const emoji = plant.emoji || findPlantEmoji(plant.type, plant.category) || findPlantEmoji(plant.name, plant.category) || '🌱';
+        return {
+          ...plant,
+          ...coords,
+          emoji: emoji,
+          displayName: `${emoji} ${plant.name}`
+        };
+      })
+      .filter(Boolean);
+  }, [filteredPlants, plots, showPlants]);
 
   // Separate useEffect for map centering when filters change (non-blocking)
   // Only runs when filter values actually change, not when filtered data recomputes
@@ -1407,16 +1504,30 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     setPopupLocation([item.longitude, item.latitude]);
   }, []);
 
-  // Handle cluster click - zoom into cluster
-  // Cluster click handler removed - no longer using clustered markers
-
-  // Handle marker/point click
+  // Handle marker/point click (including cluster expansion)
   const handlePointClick = useCallback((event, map) => {
     const feature = event.features?.[0];
     if (!feature || !feature.properties) return;
 
-    // No clusters anymore - directly handle individual marker click
     const properties = feature.properties;
+    
+    // Handle cluster click - zoom in to expand
+    if (properties.cluster_id !== undefined) {
+      const clusterId = properties.cluster_id;
+      const source = map.getSource('plants-source');
+      if (source && source.getClusterExpansionZoom) {
+        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+          if (err) return;
+          map.easeTo({
+            center: feature.geometry.coordinates,
+            zoom: Math.min(zoom, 20)
+          });
+        });
+      }
+      return;
+    }
+    
+    // Get marker type - check for 'type' first (should be 'plant', 'plot', 'domain')
     const type = properties.type;
     const itemId = properties.id || properties._id;
     
@@ -1428,11 +1539,22 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       latitude: feature.geometry.coordinates[1]
     };
     
+    // If it's a domain, get full domain data
+    if (type === 'domain') {
+      const fullDomain = domains.find(d => d._id === itemId) || filteredDomains.find(d => d._id === itemId);
+      if (fullDomain) {
+        item = {
+          ...fullDomain,
+          longitude: feature.geometry.coordinates[0],
+          latitude: feature.geometry.coordinates[1]
+        };
+      }
+    }
+    
     // If it's a plot, try to get the full plot data with populated fields
     if (type === 'plot') {
       const fullPlot = plots.find(p => p._id === itemId) || filteredPlots.find(p => p._id === itemId);
       if (fullPlot) {
-        // Merge with full plot data to ensure populated domainId and organizationId are included
         item = {
           ...fullPlot,
           longitude: feature.geometry.coordinates[0],
@@ -1440,9 +1562,25 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
         };
       }
     }
+    
+    // If it's a plant, get full plant data and show popup without zooming
+    if (type === 'plant') {
+      const fullPlant = filteredPlants.find(p => p._id === itemId) || mapViewPlants.find(p => p._id === itemId);
+      if (fullPlant) {
+        item = {
+          ...fullPlant,
+          longitude: feature.geometry.coordinates[0],
+          latitude: feature.geometry.coordinates[1]
+        };
+      }
+      // Just show popup at current zoom
+      setSelectedItem({ type, data: item });
+      setPopupLocation([item.longitude, item.latitude]);
+      return;
+    }
 
     handleMarkerClick(item, type);
-  }, [handleMarkerClick, plots, filteredPlots]);
+  }, [handleMarkerClick, plots, filteredPlots, filteredPlants, domains, filteredDomains, mapViewPlants]);
 
   // Handle popup close
   const handlePopupClose = useCallback(() => {
@@ -1681,6 +1819,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   }
 
   return (
+    <>
     <div className="space-y-6 relative">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -2017,7 +2156,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   handlePointClick(event, mapInstanceRef.current);
                 }
               }}
-              interactiveLayerIds={['domains-layer', 'plots-layer', 'plants-circle', 'plants-layer', 'domains-labels', 'plots-labels', 'plants-labels']}
+              interactiveLayerIds={['domains-layer', 'plots-layer', 'plants-layer', 'plants-icon', 'plants-clusters', 'domains-labels', 'plots-labels', 'plants-labels']}
               style={{ width: '100%', height: '100%', zIndex: 0 }}
               mapStyle={getMapStyle(mapStyle)}
               mapboxAccessToken={MAPBOX_CONFIG.accessToken}
@@ -2056,23 +2195,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
               />
             </Source>
             
-            {/* Popup for item details */}
-            {selectedItem && popupLocation && (
-              <Popup
-                longitude={popupLocation[0]}
-                latitude={popupLocation[1]}
-                onClose={handlePopupClose}
-                closeButton={true}
-                closeOnClick={false}
-                anchor="center"
-                offset={[0, 0]}
-                className="mapbox-popup"
-                maxWidth="320px"
-                minWidth="280px"
-              >
-                {renderPopupContent(selectedItem.type, selectedItem.data)}
-              </Popup>
-            )}
+            {/* Centered Modal Popup for item details - rendered outside map */}
             
             {/* Phase 1 Center Circle (4km radius) */}
             <Source
@@ -2211,59 +2334,61 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
               );
             })()}
 
-            {/* Plot Boundaries */}
-            {showPlots && viewState.zoom >= ZOOM_THRESHOLDS.SHOW_PLOTS && filteredPlots.map(plot => {
-              const plotDomainId = plot.domainId?._id || plot.domainId;
-              const domain = filteredDomains.find(d => d._id === plotDomainId);
-              const hasCoordinates = plot.latitude && plot.longitude;
-              const withinDomain = domain && hasCoordinates ? isPlotWithinDomain(plot, domain) : true;
-
-              if (!withinDomain) {
-                return null;
-              }
-
-              // Always use calculated square boundary based on plot size to ensure it matches the plot size
-              const polygonCoords = generatePlotBoundaryFromSize(plot);
-              const plotBoundary = polygonCoords
-                ? {
+            {/* Plot Boundaries - Combined into single GeoJSON source for performance */}
+            {(() => {
+              if (!showPlots || !showBoundaries || viewState.zoom < ZOOM_THRESHOLDS.SHOW_PLOTS) return null;
+              
+              const plotsWithCoords = filteredPlots.filter(plot => plot.latitude && plot.longitude);
+              
+              const boundaryFeatures = plotsWithCoords
+                .map(plot => {
+                  const polygonCoords = generatePlotBoundaryFromSize(plot);
+                  if (!polygonCoords) {
+                    return null;
+                  }
+                  return {
                     type: 'Feature',
                     geometry: {
                       type: 'Polygon',
                       coordinates: [polygonCoords],
                     },
-                    properties: {},
-                  }
-                : null;
-
+                    properties: { plotId: plot._id, plotName: plot.name },
+                  };
+                })
+                .filter(Boolean);
+              
+              if (boundaryFeatures.length === 0) return null;
+              
+              const boundariesGeoJson = {
+                type: 'FeatureCollection',
+                features: boundaryFeatures,
+              };
+              
               return (
-                <React.Fragment key={`plot-boundary-${plot._id}`}>
-                  {showBoundaries && plotBoundary && (
-                    <Source
-                      id={`plot-boundary-${plot._id}`}
-                      type="geojson"
-                      data={plotBoundary}
-                    >
-                      <Layer
-                        id={`plot-boundary-fill-${plot._id}`}
-                        type="fill"
-                        paint={{
-                          'fill-color': '#ddecff',
-                          'fill-opacity': 0.18,
-                        }}
-                      />
-                      <Layer
-                        id={`plot-boundary-line-${plot._id}`}
-                        type="line"
-                        paint={{
-                          'line-color': '#1e40af',
-                          'line-width': 2.5,
-                        }}
-                      />
-                    </Source>
-                  )}
-                </React.Fragment>
+                <Source
+                  id="plot-boundaries-source"
+                  type="geojson"
+                  data={boundariesGeoJson}
+                >
+                  <Layer
+                    id="plot-boundaries-fill"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#ddecff',
+                      'fill-opacity': 0.18,
+                    }}
+                  />
+                  <Layer
+                    id="plot-boundaries-line"
+                    type="line"
+                    paint={{
+                      'line-color': '#1e40af',
+                      'line-width': 2.5,
+                    }}
+                  />
+                </Source>
               );
-            })}
+            })()}
 
             {/* Plot Markers - Separate GeoJSON Source (like Domains) */}
             {(() => {
@@ -2287,12 +2412,12 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   const fallbackCoords = findFallbackLocation(plot, 'plot');
                   const hasDirectCoordinates = plot.latitude && plot.longitude;
                   
-                  // Priority: topAnchor > layoutCentroid > fallback > direct coordinates
+                  // Priority: direct coordinates > fallback > layoutCentroid > topAnchor
                   const displayCoords =
-                    topAnchorCoords ||
-                    layoutCentroid ||
+                    (hasDirectCoordinates ? [plot.longitude, plot.latitude] : null) ||
                     fallbackCoords ||
-                    (hasDirectCoordinates ? [plot.longitude, plot.latitude] : null);
+                    layoutCentroid ||
+                    topAnchorCoords;
 
                   if (!displayCoords) {
                     // If plot is in filtered list but has no coordinates, try to use domain center as fallback
@@ -2395,49 +2520,15 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
               );
             })()}
 
-            {/* Plant Markers - Separate GeoJSON Source */}
+            {/* Plant Markers - GeoJSON Source with Clustering */}
             {(() => {
               if (!showPlants || viewState.zoom < ZOOM_THRESHOLDS.SHOW_PLANTS || filteredPlants.length === 0) return null;
               
               const plantMarkers = filteredPlants
                 .map(plant => {
-                  // Try to find coordinates for the plant
                   const hasDirectCoordinates = plant.latitude && plant.longitude;
                   
                   if (hasDirectCoordinates) {
-                    // Plant has coordinates, check if it's within plot boundary
-                  const plantPlotId = plant.plotId?._id || plant.plotId;
-                  const plot = filteredPlots.find(p => p._id === plantPlotId);
-                  
-                    // If no plot found, show plant anyway (might be orphaned)
-                  if (!plot) {
-                      return {
-                        ...plant,
-                        longitude: plant.longitude,
-                        latitude: plant.latitude
-                      };
-                    }
-                    
-                    // If plot has no size/coordinates, show plant at its own coordinates
-                  if (!plot.latitude || !plot.longitude || !plot.size) {
-                      return {
-                        ...plant,
-                        longitude: plant.longitude,
-                        latitude: plant.latitude
-                      };
-                  }
-                  
-                  // Check if plant is within plot boundary
-                    if (isPlantWithinPlot(plant, plot)) {
-                      return {
-                        ...plant,
-                        longitude: plant.longitude,
-                        latitude: plant.latitude
-                      };
-                    }
-                    
-                    // Plant is outside plot boundary, but show it anyway for now
-                    console.warn(`Plant "${plant.name}" is outside plot boundary, showing anyway`);
                     return {
                       ...plant,
                       longitude: plant.longitude,
@@ -2446,42 +2537,26 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   } else {
                     // Plant has no coordinates, try to use plot center as fallback
                     const plantPlotId = plant.plotId?._id || plant.plotId;
-                    const plot = filteredPlots.find(p => p._id === plantPlotId);
+                    // Search ALL plots for fallback
+                    const plot = plots.find(p => p._id === plantPlotId) || filteredPlots.find(p => p._id === plantPlotId);
                     
-                    if (plot) {
-                      // Try to find plot coordinates
-                      const plotDomainId = plot.domainId?._id || plot.domainId;
-                      const domain = filteredDomains.find(d => d._id === plotDomainId);
-                      const layoutPlot = matchFarmLayoutEntity(plot, 'plot', domain);
-                      const polygonCoords = layoutPlot?.polygonLngLat;
-                      const topAnchorCoords = polygonCoords ? getPolygonTopAnchor(polygonCoords) : null;
-                      const layoutCentroid = layoutPlot?.centroid;
-                      const fallbackCoords = findFallbackLocation(plot, 'plot');
-                      const hasPlotCoordinates = plot.latitude && plot.longitude;
-                      
-                      const plotCoords = topAnchorCoords || layoutCentroid || fallbackCoords || 
-                        (hasPlotCoordinates ? [plot.longitude, plot.latitude] : null);
-                      
-                      if (plotCoords) {
-                        console.warn(`Plant "${plant.name}" has no coordinates, using plot center as fallback`);
-                        return {
-                          ...plant,
-                          longitude: plotCoords[0],
-                          latitude: plotCoords[1]
-                        };
-                      }
+                    if (plot && plot.latitude && plot.longitude) {
+                      return {
+                        ...plant,
+                        longitude: plot.longitude,
+                        latitude: plot.latitude
+                      };
                     }
-                    
-                    // No fallback available, skip this plant
-                    console.warn(`Plant "${plant.name}" has no coordinates and no fallback, skipping`);
                     return null;
                   }
                 })
                 .filter(Boolean);
 
+
               // Add emojis to plant markers for display
               const plantMarkersWithEmoji = plantMarkers.map(plant => {
-                const emoji = findPlantEmoji(plant.type || plant.variety || plant.name, plant.category);
+                // Use emoji from DB if available, otherwise use findPlantEmoji
+                const emoji = plant.emoji || findPlantEmoji(plant.type || plant.variety || plant.name, plant.category);
                 return {
                   ...plant,
                   emoji: emoji,
@@ -2491,83 +2566,145 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
               if (plantMarkersWithEmoji.length === 0) return null;
               
-              // Debug: Log emoji data
-              console.log('🌱 Plant marker emoji data:', {
-                totalPlants: plantMarkersWithEmoji.length,
-                firstPlant: plantMarkersWithEmoji[0]?.name,
-                firstEmoji: plantMarkersWithEmoji[0]?.emoji,
-                firstEmojiCode: plantMarkersWithEmoji[0]?.emoji?.charCodeAt(0),
-                sample3Plants: plantMarkersWithEmoji.slice(0, 3).map(p => ({ name: p.name, emoji: p.emoji }))
-              });
               
-              // Use HTML Markers for plants - Mapbox text symbol layers don't render emojis properly
-              return plantMarkersWithEmoji.map(plant => (
+              // Build GeoJSON for clustered rendering
+              const plantGeoJson = {
+                type: 'FeatureCollection',
+                features: plantMarkersWithEmoji.map(plant => ({
+                  type: 'Feature',
+                  properties: {
+                    id: plant._id,
+                    name: plant.name,
+                    displayName: plant.displayName,
+                    emoji: plant.emoji || '🌱',
+                    plantType: plant.type,
+                    category: plant.category,
+                    variety: plant.variety,
+                    health: plant.health,
+                    type: 'plant'  // This is the marker type for click handling
+                  },
+                  geometry: {
+                    type: 'Point',
+                    coordinates: [plant.longitude, plant.latitude]
+                  }
+                }))
+              };
+              
+              const plantSourceKey = `plants-source-${filterPlot}-${filterDomain}-${plantMarkers.length}`;
+              
+              return (
+                <Source
+                  key={plantSourceKey}
+                  id="plants-source"
+                  type="geojson"
+                  data={plantGeoJson}
+                  cluster={true}
+                  clusterMaxZoom={17}
+                  clusterRadius={40}
+                >
+                  {/* Clustered circles */}
+                  <Layer
+                    id="plants-clusters"
+                    type="circle"
+                    filter={['has', 'point_count']}
+                    paint={{
+                      'circle-color': [
+                        'step',
+                        ['get', 'point_count'],
+                        '#10b981',
+                        10, '#f59e0b',
+                        50, '#ef4444'
+                      ],
+                      'circle-radius': [
+                        'step',
+                        ['get', 'point_count'],
+                        18,
+                        10, 24,
+                        50, 32
+                      ],
+                      'circle-stroke-width': 3,
+                      'circle-stroke-color': '#ffffff'
+                    }}
+                  />
+                  {/* Cluster count labels */}
+                  <Layer
+                    id="plants-cluster-count"
+                    type="symbol"
+                    filter={['has', 'point_count']}
+                    layout={{
+                      'text-field': ['get', 'point_count_abbreviated'],
+                      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                      'text-size': 16,
+                      'text-allow-overlap': true
+                    }}
+                    paint={{
+                      'text-color': '#ffffff'
+                    }}
+                  />
+                  {/* Individual plant markers hidden - using HTML markers instead */}
+                  <Layer
+                    id="plants-layer"
+                    type="circle"
+                    filter={['!', ['has', 'point_count']]}
+                    paint={{
+                      'circle-radius': 0,
+                      'circle-color': 'transparent'
+                    }}
+                  />
+                  {/* Plant labels at high zoom */}
+                  <Layer
+                    id="plants-labels"
+                    type="symbol"
+                    filter={['!', ['has', 'point_count']]}
+                    minzoom={17}
+                    layout={{
+                      'text-field': ['get', 'name'],
+                      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                      'text-size': 13,
+                      'text-offset': [0, 2],
+                      'text-anchor': 'top',
+                      'text-allow-overlap': false
+                    }}
+                    paint={{
+                      'text-color': '#000000',
+                      'text-halo-color': '#ffffff',
+                      'text-halo-width': 2.5
+                    }}
+                  />
+                </Source>
+              );
+            })()}
+
+            {/* HTML Markers for individual plants with emojis - only at high zoom, limited for performance */}
+            {showPlants && viewState.zoom >= 18 && (() => {
+              // Only render markers in current viewport, max 100 for performance
+              const bounds = mapInstanceRef.current?.getBounds();
+              let visiblePlants = plantMarkersWithEmoji;
+              if (bounds) {
+                visiblePlants = plantMarkersWithEmoji.filter(p => 
+                  p.longitude >= bounds.getWest() && p.longitude <= bounds.getEast() &&
+                  p.latitude >= bounds.getSouth() && p.latitude <= bounds.getNorth()
+                );
+              }
+              return visiblePlants.slice(0, 100).map(plant => (
                 <Marker
                   key={plant._id}
                   longitude={plant.longitude}
                   latitude={plant.latitude}
-                  anchor="center"
+                  anchor="bottom"
                   onClick={(e) => {
                     e.originalEvent.stopPropagation();
-                    handleMarkerClick(plant, 'plant');
+                    setSelectedItem({ type: 'plant', data: plant });
+                    setPopupLocation([plant.longitude, plant.latitude]);
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {/* Emoji marker with white background and green border */}
-                    <div
-                      style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '50%',
-                        backgroundColor: '#ffffff',
-                        border: '2px solid #059669',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '26px',
-                        lineHeight: 1,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        transition: 'transform 0.2s',
-                        userSelect: 'none'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.15)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
-                    >
-                      {plant.emoji || '🌱'}
-                    </div>
-                    {/* Label below marker */}
-                    {viewState.zoom >= 13 && (
-                      <div
-                        style={{
-                          marginTop: '6px',
-                          fontSize: '11px',
-                          fontWeight: 'bold',
-                          color: '#000000',
-                          textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 4px #fff',
-                          whiteSpace: 'nowrap',
-                          userSelect: 'none',
-                          pointerEvents: 'none'
-                        }}
-                      >
-                        {plant.displayName}
-                      </div>
-                    )}
+                  <div className="flex flex-col items-center cursor-pointer">
+                    <span style={{ fontSize: '24px' }}>{plant.emoji || '🌱'}</span>
+                    <div className="w-2 h-2 bg-green-500 rounded-full border border-white shadow-sm"></div>
                   </div>
                 </Marker>
               ));
             })()}
-
 
           </Map>
           ) : (
@@ -2671,6 +2808,65 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
       </div>
 
     </div>
+
+      {/* Centered Modal Popup for item details - outside map container */}
+      {selectedItem && popupLocation && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 9999
+          }}
+          onClick={handlePopupClose}
+        >
+          <div 
+            style={{
+              width: '320px',
+              height: '450px',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              position: 'relative',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handlePopupClose}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(0,0,0,0.5)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100
+              }}
+            >
+              <X style={{ width: '18px', height: '18px', color: '#fff' }} />
+            </button>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {renderPopupContent(selectedItem.type, selectedItem.data)}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 });
 
