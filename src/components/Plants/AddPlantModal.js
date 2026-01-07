@@ -76,6 +76,23 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
       console.log('AddPlantModal: Setting form data to:', newFormData);
       setFormData(newFormData);
       
+      // Initialize image preview if plant has an image
+      if (plant.image && plant.image !== '🌱') {
+        // Check if it's a URL (starts with http:// or https://)
+        if (plant.image.startsWith('http://') || plant.image.startsWith('https://')) {
+          setImageUrl(plant.image);
+          setImagePreview(plant.image);
+          setImageInputType('url');
+        } else {
+          // For emoji or other non-URL images, keep the default
+          setImagePreview(null);
+          setImageUrl('');
+        }
+      } else {
+        setImagePreview(null);
+        setImageUrl('');
+      }
+      
       console.log('AddPlantModal: Form data updated:', {
         name: newFormData.name,
         type: newFormData.type,
@@ -346,8 +363,13 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
     }
   }, [currentUser.role, currentUser.plotId]);
 
-  // Initialize form data based on user role
+  // Initialize form data based on user role (skip if in edit mode)
   useEffect(() => {
+    // Don't initialize if we're in edit mode - let the edit useEffect handle it
+    if (isEdit) {
+      return;
+    }
+    
     const initializeFormData = () => {
       let initialData = {
         name: '',
@@ -395,7 +417,7 @@ function AddPlantModal({ onClose, onAdd, organizations = [], domains = [], plots
     };
 
     initializeFormData();
-  }, [currentUser.role, currentUser.organizationId, currentUser.domainId, currentUser.plotId, loadDomainsForOrganization, loadPlotsForDomain]);
+  }, [isEdit, currentUser.role, currentUser.organizationId, currentUser.domainId, currentUser.plotId, loadDomainsForOrganization, loadPlotsForDomain]);
 
   // Load related data when form data changes (for edit mode)
   useEffect(() => {
