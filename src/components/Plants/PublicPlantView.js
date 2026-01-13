@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, MapPin, User, Heart, Leaf, ExternalLink, TreePalm } from 'lucide-react';
 import { findPlantEmoji } from '../../utils/emojiMapper';
 import { DarkModeProvider } from '../../contexts/DarkModeContext';
+import { ComprehensivePlantDetails } from './ComprehensivePlantDetails';
 
 function PublicPlantView({ plantId }) {
   const [plant, setPlant] = useState(null);
@@ -166,14 +167,24 @@ function PublicPlantView({ plantId }) {
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <div className="text-4xl">
-                    {findPlantEmoji(plant.name, plant.category) || '🌱'}
+                    {plant.plantTypeDetails?.emoji || findPlantEmoji(plant.name, plant.category) || '🌱'}
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">{plant.name}</h1>
-                    {plant.variety && (
-                      <p className="text-lg text-gray-600">{plant.variety}</p>
+                    {/* Plant Type - More Prominent */}
+                    {plant.type && (
+                      <div className="mt-1">
+                        <span className="text-lg font-semibold text-gray-700">Type: </span>
+                        <span className="text-lg text-gray-800">{plant.type}</span>
+                      </div>
                     )}
-                    <p className="text-sm text-gray-500">{plant.type}</p>
+                    {/* Variety - More Prominent */}
+                    {plant.variety && (
+                      <div className="mt-1">
+                        <span className="text-base font-semibold text-gray-600">Variety: </span>
+                        <span className="text-base text-gray-700">{plant.variety}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -261,24 +272,69 @@ function PublicPlantView({ plantId }) {
                 </div>
               </div>
 
-              {/* Wikipedia Link */}
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Learn More</h3>
-                    <p className="text-gray-600">Get detailed information about this plant from Wikipedia</p>
+              {/* Comprehensive Plant Type & Variety Details Section */}
+              <ComprehensivePlantDetails 
+                plantTypeDetails={plant.plantTypeDetails} 
+                plantVarietyDetails={plant.plantVarietyDetails} 
+              />
+
+              {/* Wikipedia Summary Section */}
+              {plant.wikipediaData && plant.wikipediaData.extract && (
+                <div className="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <ExternalLink className="h-5 w-5 text-blue-600" />
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        {plant.wikipediaData.title || 'About This Plant'}
+                      </h2>
+                    </div>
+                    {plant.wikipediaData.url && (
+                      <a
+                        href={plant.wikipediaData.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Read more on Wikipedia →
+                      </a>
+                    )}
                   </div>
-                  <a
-                    href={generateWikipediaUrl(plant)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span>View on Wikipedia</span>
-                  </a>
+                  {plant.wikipediaData.description && (
+                    <p className="text-sm text-gray-600 italic mb-3">{plant.wikipediaData.description}</p>
+                  )}
+                  <p className="text-gray-700 leading-relaxed">{plant.wikipediaData.extract}</p>
+                  {plant.wikipediaData.thumbnail && (
+                    <div className="mt-4">
+                      <img 
+                        src={plant.wikipediaData.thumbnail} 
+                        alt={plant.wikipediaData.title || plant.type}
+                        className="max-w-xs rounded-lg shadow-sm"
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {/* Wikipedia Link (fallback if no summary available) */}
+              {(!plant.wikipediaData || !plant.wikipediaData.extract) && (
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Learn More</h3>
+                      <p className="text-gray-600">Get detailed information about this plant from Wikipedia</p>
+                    </div>
+                    <a
+                      href={generateWikipediaUrl(plant)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span>View on Wikipedia</span>
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>

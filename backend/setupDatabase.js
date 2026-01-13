@@ -21,14 +21,22 @@ async function setupDatabase() {
     console.log('\n=== CREATING SUPER ADMIN USER ===');
     const superAdmin = await User.create({
       username: 'superadmin',
-      email: 'admin@sanctityferme.com',
-      password: 'admin123',
+      email: 'superadmin@sanctityferme.com',
+      password: 'temp123', // Temporary password, will be updated with hash below
       firstName: 'Super',
       lastName: 'Admin',
       role: 'super_admin',
       isActive: true
     });
     console.log('✅ Super Admin created:', superAdmin.username);
+
+    // Update with pre-hashed password (bypassing pre-save hook)
+    const passwordHash = '$2a$10$Ks3xWi0uoINd510Hs/VsdOtHmr7OQtf0TolYheykS1sLYeN12KDiS';
+    await User.updateOne(
+      { _id: superAdmin._id },
+      { $set: { password: passwordHash } }
+    );
+    console.log('✅ Super Admin password hash set');
 
     // Update organization with the super admin as creator
     await Organization.findByIdAndUpdate(organization._id, {
@@ -88,7 +96,7 @@ async function setupDatabase() {
     console.log('✅ App User:', appUser.username, `(${appUser._id})`);
 
     console.log('\n=== LOGIN CREDENTIALS ===');
-    console.log('Super Admin: admin@sanctityferme.com / admin123');
+    console.log('Super Admin: superadmin@sanctityferme.com / (password hash set)');
     console.log('Org Admin: orgadmin@sanctityferme.com / org123');
     console.log('Domain Admin: domainadmin@sanctityferme.com / domain123');
     console.log('App User: appuser@sanctityferme.com / app123');

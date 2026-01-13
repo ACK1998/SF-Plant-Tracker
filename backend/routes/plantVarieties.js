@@ -3,6 +3,7 @@ const router = express.Router();
 const PlantVariety = require('../models/PlantVariety');
 const PlantType = require('../models/PlantType');
 const { auth } = require('../middleware/auth');
+const { searchPlantVariety, isTrefleConfigured } = require('../utils/trefleApi');
 
 // Helper function to check if user can edit a plant variety
 const canEditPlantVariety = (user, plantVariety) => {
@@ -205,6 +206,49 @@ router.get('/by-type/:plantTypeId', auth, async (req, res) => {
   }
 });
 
+// GET /api/plant-varieties/fetch-from-trefle - Fetch variety data from Trefle API
+router.get('/fetch-from-trefle', auth, async (req, res) => {
+  try {
+    const { varietyName, plantTypeName } = req.query;
+
+    if (!varietyName) {
+      return res.status(400).json({
+        success: false,
+        message: 'varietyName query parameter is required'
+      });
+    }
+
+    if (!isTrefleConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Trefle API is not configured. Please set TREFLE_API_TOKEN environment variable.'
+      });
+    }
+
+    const varietyData = await searchPlantVariety(varietyName, plantTypeName);
+
+    if (!varietyData) {
+      return res.status(404).json({
+        success: false,
+        message: 'No variety data found for the given search query'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: varietyData,
+      source: 'trefle'
+    });
+  } catch (error) {
+    console.error('Error fetching from Trefle:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch variety data from Trefle API',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/plant-varieties/:id - Get single plant variety
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -242,7 +286,8 @@ router.post('/', auth, async (req, res) => {
       plantTypeId, 
       description, 
       characteristics, 
-      growingInfo 
+      growingInfo,
+      autoPopulateFromTrefle = false
     } = req.body;
 
     // Validate required fields
@@ -282,13 +327,40 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
+    // Auto-populate from Trefle if requested and no data provided
+    let finalDescription = description?.trim();
+    let finalCharacteristics = characteristics || {};
+    let finalGrowingInfo = growingInfo || {};
+
+    if (autoPopulateFromTrefle && isTrefleConfigured() && !description && !characteristics && !growingInfo) {
+      try {
+        const trefleData = await searchPlantVariety(name, plantType.name);
+        
+        if (trefleData) {
+          // Merge Trefle data (only fill in missing fields)
+          finalDescription = finalDescription || trefleData.description || null;
+          finalCharacteristics = {
+            ...(trefleData.characteristics || {}),
+            ...finalCharacteristics
+          };
+          finalGrowingInfo = {
+            ...(trefleData.growingInfo || {}),
+            ...finalGrowingInfo
+          };
+        }
+      } catch (trefleError) {
+        // Log error but don't fail the request - continue with user-provided data
+        console.warn('Failed to auto-populate from Trefle:', trefleError.message);
+      }
+    }
+
     const plantVariety = new PlantVariety({
       name: name.trim(),
       plantTypeId,
       plantTypeName: plantType.name,
-      description: description?.trim(),
-      characteristics,
-      growingInfo,
+      description: finalDescription,
+      characteristics: Object.keys(finalCharacteristics).length > 0 ? finalCharacteristics : undefined,
+      growingInfo: Object.keys(finalGrowingInfo).length > 0 ? finalGrowingInfo : undefined,
       createdBy: req.user._id,
       organizationId: organizationId
     });

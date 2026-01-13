@@ -28,6 +28,7 @@ import {
   debounce,
   getMarkerColor
 } from '../../utils/mapboxUtils';
+import { getHealthColorValue, HEALTH_COLORS, UI_COLORS } from '../../utils/colors';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Removed applyMarkerColors - using Mapbox layers instead
@@ -401,63 +402,63 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '24px',
-                backgroundColor: '#10b981',
+                backgroundColor: UI_COLORS.status.active,
                 boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
               }}>
                 {findPlantEmoji(data.type, data.category)}
               </div>
               <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937', margin: '0 0 2px 0' }}>{data.name}</h3>
-                <p style={{ fontSize: '12px', color: '#059669', margin: 0, fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Details</p>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: UI_COLORS.text.primary, margin: '0 0 2px 0' }}>{data.name}</h3>
+                <p style={{ fontSize: '12px', color: HEALTH_COLORS.good.primary, margin: 0, fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Details</p>
               </div>
             </div>
             
             {/* Content */}
-            <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '0 0 16px 16px' }}>
+            <div style={{ padding: '16px', backgroundColor: UI_COLORS.background.white, borderRadius: '0 0 16px 16px' }}>
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
-                  <Leaf style={{ width: '20px', height: '20px', color: '#059669', flexShrink: 0 }} />
+                  <Leaf style={{ width: '20px', height: '20px', color: HEALTH_COLORS.good.primary, flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Type</span>
-                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.type || 'N/A'}</span>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plant Type</span>
+                    <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{data.type || 'N/A'}</span>
                   </div>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
-                  <Sprout style={{ width: '20px', height: '20px', color: '#059669', flexShrink: 0 }} />
+                  <Sprout style={{ width: '20px', height: '20px', color: HEALTH_COLORS.good.primary, flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Variety</span>
-                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.variety || 'N/A'}</span>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Variety</span>
+                    <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{data.variety || 'N/A'}</span>
                   </div>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
-                  <Heart style={{ width: '20px', height: '20px', color: data.health === 'Good' ? '#10b981' : data.health === 'Fair' ? '#f59e0b' : '#ef4444', flexShrink: 0 }} />
+                  <Heart style={{ width: '20px', height: '20px', color: getHealthColorValue(data.health, 'secondary'), flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Health Status</span>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Health Status</span>
                     <span style={{ 
                       fontSize: '14px', 
                       fontWeight: '700',
-                      color: data.health === 'Good' ? '#059669' : data.health === 'Fair' ? '#d97706' : '#dc2626'
+                      color: getHealthColorValue(data.health, 'primary')
                     }}>{data.health || 'N/A'}</span>
                   </div>
                 </div>
               </div>
               
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+              <div style={{ borderTop: `1px solid ${UI_COLORS.background.border}`, paddingTop: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
-                  <UserIcon style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <UserIcon style={{ width: '20px', height: '20px', color: UI_COLORS.primary.blue, flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</span>
-                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.createdBy?.name || data.planter || 'N/A'}</span>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created By</span>
+                    <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{data.createdBy?.name || data.planter || 'N/A'}</span>
                   </div>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
-                  <Calendar style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <Calendar style={{ width: '20px', height: '20px', color: UI_COLORS.primary.blue, flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Planted Date</span>
-                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Planted Date</span>
+                    <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>
                       {data.plantedDate ? new Date(data.plantedDate).toLocaleDateString() : 
                        data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}
                     </span>
@@ -465,25 +466,25 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
-                  <MapPin style={{ width: '20px', height: '20px', color: '#2563eb', flexShrink: 0 }} />
+                  <MapPin style={{ width: '20px', height: '20px', color: UI_COLORS.primary.blue, flexShrink: 0 }} />
                   <div>
-                    <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plot Location</span>
-                    <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{getPlotName(data.plotId) || 'N/A'}</span>
+                    <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plot Location</span>
+                    <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{getPlotName(data.plotId) || 'N/A'}</span>
                   </div>
                 </div>
               </div>
               
               {/* Additional Details */}
               {(data.category || data.growthStage || data.notes) && (
-                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', marginTop: '8px' }}>
+                <div style={{ borderTop: `1px solid ${UI_COLORS.background.border}`, paddingTop: '16px', marginTop: '8px' }}>
                   {data.category && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
                       <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></div>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: UI_COLORS.primary.purple }}></div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</span>
-                        <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.category}</span>
+                        <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</span>
+                        <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{data.category}</span>
                       </div>
                     </div>
                   )}
@@ -491,11 +492,11 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   {data.growthStage && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', padding: '8px 0' }}>
                       <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#f97316' }}></div>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: UI_COLORS.primary.orange }}></div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Growth Stage</span>
-                        <span style={{ fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>{data.growthStage}</span>
+                        <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Growth Stage</span>
+                        <span style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '600' }}>{data.growthStage}</span>
                       </div>
                     </div>
                   )}
@@ -503,11 +504,11 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   {data.notes && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '8px 0' }}>
                       <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#6b7280' }}></div>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: UI_COLORS.text.secondary }}></div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Notes</span>
-                        <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{data.notes}</span>
+                        <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Notes</span>
+                        <span style={{ fontSize: '13px', color: UI_COLORS.text.primary, fontWeight: '500' }}>{data.notes}</span>
                       </div>
                     </div>
                   )}
@@ -516,9 +517,9 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
               
               {/* QR Code Section */}
               {qrCodeUrl && (
-                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', marginTop: '8px', textAlign: 'center' }}>
-                  <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Scan QR Code</span>
-                  <img src={qrCodeUrl} alt="Plant QR Code" style={{ width: '120px', height: '120px', margin: '0 auto', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                <div style={{ borderTop: `1px solid ${UI_COLORS.background.border}`, paddingTop: '16px', marginTop: '8px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '11px', color: UI_COLORS.text.secondary, display: 'block', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Scan QR Code</span>
+                  <img src={qrCodeUrl} alt="Plant QR Code" style={{ width: '120px', height: '120px', margin: '0 auto', borderRadius: '8px', border: `1px solid ${UI_COLORS.background.border}` }} />
                 </div>
               )}
             </div>
@@ -2611,9 +2612,9 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                       'circle-color': [
                         'step',
                         ['get', 'point_count'],
-                        '#10b981',
-                        10, '#f59e0b',
-                        50, '#ef4444'
+                        UI_COLORS.cluster.small,
+                        10, UI_COLORS.cluster.medium,
+                        50, UI_COLORS.cluster.large
                       ],
                       'circle-radius': [
                         'step',

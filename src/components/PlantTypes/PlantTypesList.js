@@ -623,12 +623,40 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     setDeleteDialog({ show: true, item, type });
   };
 
-  // Group plant types by category
-  const groupedPlantTypes = plantTypes.reduce((acc, type) => {
-    if (!acc[type.category]) {
-      acc[type.category] = [];
+  // Normalize category names: create a mapping from normalized to database category name
+  // Also handle singular/plural variations (e.g., "fruit" and "fruits" both map to "fruit")
+  const categoryNameMap = new Map();
+  dbCategories.forEach(dbCat => {
+    const normalized = dbCat.name.toLowerCase().trim();
+    // Map normalized name to database category name
+    categoryNameMap.set(normalized, dbCat.name);
+    // Also map common singular/plural variations
+    if (normalized.endsWith('s') && normalized.length > 1) {
+      const singular = normalized.slice(0, -1);
+      if (!categoryNameMap.has(singular)) {
+        categoryNameMap.set(singular, dbCat.name);
+      }
+    } else {
+      const plural = normalized + 's';
+      if (!categoryNameMap.has(plural)) {
+        categoryNameMap.set(plural, dbCat.name);
+      }
     }
-    acc[type.category].push(type);
+  });
+  
+  // Group plant types by category (normalize to database category names)
+  const groupedPlantTypes = plantTypes.reduce((acc, type) => {
+    if (!type.category) return acc;
+    
+    // Normalize the category name
+    const normalizedCategory = type.category.toLowerCase().trim();
+    // Use database category name if it exists, otherwise use the original
+    const categoryKey = categoryNameMap.get(normalizedCategory) || type.category;
+    
+    if (!acc[categoryKey]) {
+      acc[categoryKey] = [];
+    }
+    acc[categoryKey].push(type);
     return acc;
   }, {});
 
@@ -662,10 +690,17 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   console.log('Debug - groupedPlantTypes keys:', Object.keys(groupedPlantTypes));
   console.log('Debug - filteredGroupedPlantTypes keys:', Object.keys(filteredGroupedPlantTypes));
 
-  // Get category display info
+  // Get category display info (case-insensitive matching)
   const getCategoryInfo = (category) => {
-    // First try to find the category in the database categories
-    const dbCategory = dbCategories.find(cat => cat.name === category);
+    if (!category) {
+      return { label: category || 'Unknown', icon: '🌱', color: 'text-gray-600' };
+    }
+    
+    // Normalize category name for matching (lowercase)
+    const normalizedCategory = category.toLowerCase().trim();
+    
+    // First try to find the category in the database categories (case-insensitive)
+    const dbCategory = dbCategories.find(cat => cat.name.toLowerCase().trim() === normalizedCategory);
     if (dbCategory) {
       return {
         label: dbCategory.displayName,
@@ -679,11 +714,12 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
       'vegetable': { label: 'Vegetables', icon: '🥬', color: 'text-green-600' },
       'herb': { label: 'Herbs', icon: '🌿', color: 'text-green-500' },
       'fruit': { label: 'Fruits', icon: '🍓', color: 'text-red-500' },
+      'fruits': { label: 'Fruits', icon: '🍓', color: 'text-red-500' },
       'tree': { label: 'Trees', icon: '🌳', color: 'text-green-700' },
       'grain': { label: 'Grains', icon: '🌾', color: 'text-yellow-600' },
       'legume': { label: 'Legumes', icon: '🫘', color: 'text-orange-500' }
     };
-    return categoryLabels[category] || { label: category, icon: '🌱', color: 'text-gray-600' };
+    return categoryLabels[normalizedCategory] || { label: category, icon: '🌱', color: 'text-gray-600' };
   };
 
   if (loading) {

@@ -56,6 +56,10 @@ PORT=5001
 MONGODB_URI=mongodb://localhost:27017/sanctity-ferme
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 NODE_ENV=development
+
+# Optional: Trefle API for auto-populating plant variety data
+# Get your free API token at https://trefle.io/
+TREFLE_API_TOKEN=your-trefle-api-token
 ```
 
 ## API Endpoints

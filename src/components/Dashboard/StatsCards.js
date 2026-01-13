@@ -2,6 +2,29 @@ import React from 'react';
 import { Building, MapPin, Users } from 'lucide-react';
 
 function StatsCards({ stats, user }) {
+  // Color mapping function to ensure Tailwind can detect all classes
+  const getColorClasses = (color) => {
+    const colorMap = {
+      blue: {
+        bg: 'bg-blue-100 dark:bg-blue-900/20',
+        icon: 'text-blue-600 dark:text-blue-400'
+      },
+      purple: {
+        bg: 'bg-purple-100 dark:bg-purple-900/20',
+        icon: 'text-purple-600 dark:text-purple-400'
+      },
+      orange: {
+        bg: 'bg-orange-100 dark:bg-orange-900/20',
+        icon: 'text-orange-600 dark:text-orange-400'
+      },
+      indigo: {
+        bg: 'bg-indigo-100 dark:bg-indigo-900/20',
+        icon: 'text-indigo-600 dark:text-indigo-400'
+      }
+    };
+    return colorMap[color] || colorMap.blue;
+  };
+
   const cards = [
     // Only show Organizations card for super_admin users
     ...(user?.role === 'super_admin' ? [{
@@ -40,11 +63,13 @@ function StatsCards({ stats, user }) {
       cards.length === 3 ? 'grid-cols-1 md:grid-cols-3' : 
       'grid-cols-1 md:grid-cols-2'
     }`}>
-      {cards.map((card, index) => (
+      {cards.map((card, index) => {
+        const colorClasses = getColorClasses(card.color);
+        return (
         <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 hover:shadow-lg transition-shadow">
           <div className="flex items-start justify-between mb-2">
-            <div className={`p-2 rounded-lg bg-${card.color}-100 dark:bg-${card.color}-900/20`}>
-              <card.icon className={`h-5 w-5 text-${card.color}-600 dark:text-${card.color}-400`} />
+            <div className={`p-2 rounded-lg ${colorClasses.bg}`}>
+              <card.icon className={`h-5 w-5 ${colorClasses.icon}`} />
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-xs text-gray-500 dark:text-gray-400">Active</span>
@@ -72,7 +97,8 @@ function StatsCards({ stats, user }) {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

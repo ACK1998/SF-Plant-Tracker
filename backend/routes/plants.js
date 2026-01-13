@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const Plant = require('../models/Plant');
 const Plot = require('../models/Plot');
 const PlantImage = require('../models/PlantImage');
+const PlantType = require('../models/PlantType');
+const PlantVariety = require('../models/PlantVariety');
 const { auth, authorize } = require('../middleware/auth');
 
 
@@ -968,6 +970,84 @@ router.get('/public/:id', async (req, res) => {
     
     plantObj.age = ageString;
     plantObj.plantedDateFormatted = plantedDate.toLocaleDateString();
+    
+    // Try to fetch PlantType and PlantVariety details if available
+    try {
+      // Find PlantType by name (always try to fetch, even if variety is missing)
+      if (plantObj.type) {
+        // Try to match by organizationId first (more accurate), then fall back to name only
+        let plantType;
+        if (plantObj.organizationId) {
+          const orgId = plantObj.organizationId._id || plantObj.organizationId;
+          plantType = await PlantType.findOne({ 
+            name: plantObj.type,
+            organizationId: orgId,
+            isActive: true
+          });
+        }
+        
+        // Fall back to name-only match if organizationId match didn't work
+        if (!plantType) {
+          plantType = await PlantType.findOne({ 
+            name: plantObj.type,
+            isActive: true
+          });
+        }
+        
+        if (plantType) {
+          plantObj.plantTypeDetails = plantType.toObject();
+        }
+      }
+      
+      // Find PlantVariety by name and type if variety is specified
+      // Note: plant.variety field must be set on the plant record for this to work
+      if (plantObj.variety && plantObj.type && plantObj.organizationId) {
+        const plantTypeForVariety = await PlantType.findOne({ 
+          name: plantObj.type,
+          isActive: true
+        });
+        
+        if (plantTypeForVariety) {
+          // Handle organizationId - it might be an ObjectId or a populated object
+          const orgId = plantObj.organizationId._id || plantObj.organizationId;
+          
+          const plantVariety = await PlantVariety.findOne({
+            name: { $regex: new RegExp(`^${plantObj.variety}$`, 'i') },
+            plantTypeId: plantTypeForVariety._id,
+            organizationId: orgId,
+            isActive: true
+          }).populate('plantTypeId', 'name category emoji');
+          
+          if (plantVariety) {
+            plantObj.plantVarietyDetails = plantVariety.toObject();
+          }
+        }
+      }
+    } catch (varietyError) {
+      // Don't fail the request if variety lookup fails - just log and continue
+      console.warn('Error fetching plant variety details:', varietyError.message);
+    }
+    
+    // Try to fetch Wikipedia summary (optional, don't fail if it doesn't work)
+    try {
+      const { fetchWikipediaSummary } = require('../utils/wikipediaApi');
+      
+      // Build search term - prefer type over name
+      let searchTerm = plantObj.type || plantObj.name;
+      if (plantObj.variety && plantObj.type) {
+        searchTerm = `${plantObj.variety} ${plantObj.type}`;
+      } else if (plantObj.variety) {
+        searchTerm = plantObj.variety;
+      }
+      
+      const wikipediaData = await fetchWikipediaSummary(searchTerm);
+      if (wikipediaData) {
+        plantObj.wikipediaData = wikipediaData;
+      }
+    } catch (wikipediaError) {
+      // Silently fail - Wikipedia data is optional
+      console.warn('Error fetching Wikipedia data:', wikipediaError.message);
+    }
     
     res.json({
       success: true,
