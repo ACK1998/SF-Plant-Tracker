@@ -1,128 +1,77 @@
-# Security Policy
+# Security Guidelines
 
-## Supported Versions
+## ⚠️ CRITICAL: Never Commit Credentials
 
-We actively support the following versions of Sanctity Ferme Plant Tracker with security updates:
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
-
-## Reporting a Vulnerability
-
-We take the security of Sanctity Ferme Plant Tracker seriously. If you believe you have found a security vulnerability, please report it to us as described below.
-
-### How to Report
-
-**Please do NOT report security vulnerabilities through public GitHub issues.**
-
-Instead, please report them via one of the following methods:
-
-1. **Email**: Send details to the development team (contact information available in project documentation)
-2. **GitHub Security Advisory**: Use GitHub's private vulnerability reporting feature (if enabled)
-3. **Private Communication**: Contact the repository maintainers directly
-
-### What to Include
-
-When reporting a vulnerability, please include:
-
-- **Type of vulnerability** (e.g., XSS, SQL injection, authentication bypass)
-- **Affected component** (frontend, backend, API endpoint, etc.)
-- **Steps to reproduce** the vulnerability
-- **Potential impact** of the vulnerability
-- **Suggested fix** (if you have one)
-- **Proof of concept** (if applicable, but please be responsible)
-
-### Response Timeline
-
-- **Initial Response**: Within 48 hours of receiving your report
-- **Status Update**: Within 7 days with an assessment
-- **Resolution**: We aim to resolve critical vulnerabilities within 30 days
-- **Disclosure**: We will coordinate with you on public disclosure after the fix is deployed
-
-### Security Best Practices
-
-We follow these security practices:
-
-- Regular dependency updates and security audits
-- Automated security scanning in CI/CD pipelines
-- Rate limiting on API endpoints
-- Input validation and sanitization
-- Secure authentication with JWT tokens
-- Environment variable protection for sensitive data
-- Regular security reviews and penetration testing
-
-### Known Security Features
-
-The application includes the following security measures:
-
-- **Rate Limiting**: API endpoints are protected against abuse
-- **Authentication**: JWT-based authentication with secure token handling
-- **Authorization**: Role-based access control (RBAC)
-- **Input Validation**: Comprehensive validation and sanitization
-- **CORS Protection**: Properly configured Cross-Origin Resource Sharing
-- **Security Headers**: Helmet.js for security headers
-- **Error Handling**: Production-safe error messages (no stack traces)
-- **Logging**: Secure logging without sensitive data exposure
-
-### Security Considerations
-
-#### Environment Variables
-
-Never commit sensitive information to the repository. All sensitive data should be stored in environment variables:
-
-- Database connection strings
-- JWT secrets
+**NEVER commit the following to GitHub:**
+- Passwords (plain text or hashed)
 - API keys
-- Service account credentials
-- Third-party service tokens
+- Secret keys
+- Database connection strings with credentials
+- Email addresses with associated passwords
+- Private keys
+- Access tokens
 
-#### Dependencies
+## Environment Variables
 
-We regularly update dependencies and run security audits:
+All sensitive data must be stored in environment variables and loaded from `.env` files, which are already in `.gitignore`.
 
-```bash
-# Check for vulnerabilities
-npm audit
+### Required Environment Variables
 
-# Fix vulnerabilities
-npm audit fix
-```
+#### Backend Setup (`backend/setupDatabase.js`)
+- `SUPERADMIN_EMAIL` - Super admin email address
+- `SUPERADMIN_PASSWORD` - Super admin password
+- `ORGADMIN_EMAIL` - Organization admin email
+- `ORGADMIN_PASSWORD` - Organization admin password
+- `DOMAINADMIN_EMAIL` - Domain admin email
+- `DOMAINADMIN_PASSWORD` - Domain admin password
+- `APPUSER_EMAIL` - Application user email
+- `APPUSER_PASSWORD` - Application user password
 
-#### Reporting Non-Security Issues
+#### Testing (`tests/user-management.spec.ts`)
+- `TEST_SUPERADMIN_EMAIL` - Test super admin email
+- `TEST_SUPERADMIN_PASSWORD` - Test super admin password
+- `TEST_ORGADMIN_EMAIL` - Test org admin email
+- `TEST_ORGADMIN_PASSWORD` - Test org admin password
+- `TEST_DOMAINADMIN_EMAIL` - Test domain admin email
+- `TEST_DOMAINADMIN_PASSWORD` - Test domain admin password
 
-For non-security bugs, feature requests, or general questions:
+## Pre-Commit Checklist
 
-- Open a regular GitHub issue
-- Use the project's discussion forum (if available)
-- Contact the development team through standard channels
+Before committing code, verify:
+- [ ] No hardcoded passwords
+- [ ] No hardcoded API keys
+- [ ] No database connection strings with credentials
+- [ ] All sensitive data uses environment variables
+- [ ] `.env` files are not staged for commit
 
-### Security Updates
+## If Credentials Are Accidentally Committed
 
-Security updates will be:
+If credentials are accidentally committed:
 
-- Released as patch versions (e.g., 1.0.1, 1.0.2)
-- Documented in release notes
-- Prioritized over feature development
-- Backported to supported versions when applicable
+1. **Immediately rotate/change all exposed credentials**
+2. Remove the credentials from git history:
+   ```bash
+   git filter-branch --force --index-filter \
+     "git rm --cached --ignore-unmatch path/to/file" \
+     --prune-empty --tag-name-filter cat -- --all
+   ```
+3. Force push (coordinate with team):
+   ```bash
+   git push origin --force --all
+   ```
+4. Consider using tools like `git-secrets` or `git-hooks` to prevent future commits
 
-### Acknowledgments
+## Best Practices
 
-We appreciate responsible disclosure of security vulnerabilities. Contributors who report valid security issues will be:
+1. Always use environment variables for sensitive data
+2. Use `.env.example` files to document required variables (without values)
+3. Review code changes before committing
+4. Use pre-commit hooks to scan for secrets
+5. Never share credentials in chat, email, or documentation
 
-- Acknowledged in security advisories (with permission)
-- Listed in the project's security hall of fame (if applicable)
-- Thanked for helping improve the security of the application
+## Tools to Prevent Secret Exposure
 
-### Additional Resources
-
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [Node.js Security Best Practices](https://nodejs.org/en/docs/guides/security/)
-- [React Security Best Practices](https://reactjs.org/docs/faq-security.html)
-- [MongoDB Security Checklist](https://www.mongodb.com/docs/manual/administration/security-checklist/)
-
----
-
-**Thank you for helping keep Sanctity Ferme Plant Tracker and its users safe!**
-
+- `git-secrets` - AWS tool to prevent committing secrets
+- `truffleHog` - Scans git history for secrets
+- `detect-secrets` - Detects secrets in codebase
+- GitHub Secret Scanning - Automatically enabled on GitHub repos

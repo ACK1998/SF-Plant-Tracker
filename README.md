@@ -70,6 +70,15 @@ sanctity-ferme-plant-tracker/
 └── README.md              # Project documentation
 ```
 
+## Security
+
+**⚠️ CRITICAL: Never commit credentials to GitHub!**
+
+- All passwords, API keys, and secrets must be stored in environment variables
+- See [SECURITY.md](./SECURITY.md) for detailed security guidelines
+- A pre-commit hook is configured to prevent accidental credential commits
+- Always use `.env` files (which are gitignored) for sensitive configuration
+
 ## Contributing
 
 1. Fork the repository

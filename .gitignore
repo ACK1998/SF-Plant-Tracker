@@ -126,6 +126,21 @@ Thumbs.db
 
 # Google Cloud credentials
 backend/config/google-cloud-key.json
+*.json.key
+*credentials*.json
+*secrets*.json
+*keys*.json
+
+# Credential files - NEVER commit these
+*password*.txt
+*password*.js
+*password*.ts
+*secret*.txt
+*secret*.js
+*secret*.ts
+*credential*.txt
+*credential*.js
+*credential*.ts
 
 # Uploads directory (user uploaded content)
 backend/uploads/

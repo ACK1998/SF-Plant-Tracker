@@ -20,7 +20,11 @@ async function setupDatabase() {
 
     // Create super admin user
     console.log('\n=== CREATING SUPER ADMIN USER ===');
-    const superAdminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@sanctityferme.com';
+    const superAdminEmail = process.env.SUPERADMIN_EMAIL;
+    
+    if (!superAdminEmail) {
+      throw new Error('SUPERADMIN_EMAIL environment variable is required');
+    }
     const superAdminPassword = process.env.SUPERADMIN_PASSWORD;
     
     if (!superAdminPassword) {
@@ -45,7 +49,11 @@ async function setupDatabase() {
 
     // Create org admin user
     console.log('\n=== CREATING ORG ADMIN USER ===');
-    const orgAdminEmail = process.env.ORGADMIN_EMAIL || 'orgadmin@sanctityferme.com';
+    const orgAdminEmail = process.env.ORGADMIN_EMAIL;
+    
+    if (!orgAdminEmail) {
+      throw new Error('ORGADMIN_EMAIL environment variable is required');
+    }
     const orgAdminPassword = process.env.ORGADMIN_PASSWORD;
     
     if (!orgAdminPassword) {
@@ -66,7 +74,11 @@ async function setupDatabase() {
 
     // Create domain admin user
     console.log('\n=== CREATING DOMAIN ADMIN USER ===');
-    const domainAdminEmail = process.env.DOMAINADMIN_EMAIL || 'domainadmin@sanctityferme.com';
+    const domainAdminEmail = process.env.DOMAINADMIN_EMAIL;
+    
+    if (!domainAdminEmail) {
+      throw new Error('DOMAINADMIN_EMAIL environment variable is required');
+    }
     const domainAdminPassword = process.env.DOMAINADMIN_PASSWORD;
     
     if (!domainAdminPassword) {
@@ -88,7 +100,11 @@ async function setupDatabase() {
 
     // Create application user
     console.log('\n=== CREATING APPLICATION USER ===');
-    const appUserEmail = process.env.APPUSER_EMAIL || 'appuser@sanctityferme.com';
+    const appUserEmail = process.env.APPUSER_EMAIL;
+    
+    if (!appUserEmail) {
+      throw new Error('APPUSER_EMAIL environment variable is required');
+    }
     const appUserPassword = process.env.APPUSER_PASSWORD;
     
     if (!appUserPassword) {

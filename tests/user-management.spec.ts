@@ -48,8 +48,13 @@ async function waitForSuccessMessage(page: any) {
 test.describe("User Management Tests", () => {
   test.beforeEach(async ({ page }) => {
     // Login as super admin for all tests
-    const superAdminEmail = process.env.TEST_SUPERADMIN_EMAIL || "superadmin@sanctityferme.com";
-    const superAdminPassword = process.env.TEST_SUPERADMIN_PASSWORD || "1234567";
+    const superAdminEmail = process.env.TEST_SUPERADMIN_EMAIL;
+    const superAdminPassword = process.env.TEST_SUPERADMIN_PASSWORD;
+    
+    if (!superAdminEmail || !superAdminPassword) {
+      throw new Error('TEST_SUPERADMIN_EMAIL and TEST_SUPERADMIN_PASSWORD environment variables are required');
+    }
+    
     await login(page, superAdminEmail, superAdminPassword);
   });
 
@@ -144,8 +149,13 @@ test.describe("User Management Tests", () => {
     test("Org Admin creates Domain Admin - org auto-selected, must pick domain", async ({ page }) => {
       // Login as org admin
       await page.goto("http://localhost:3000/login");
-      const orgAdminEmail = process.env.TEST_ORGADMIN_EMAIL || "orgadmin@sanctityferme.com";
-      const orgAdminPassword = process.env.TEST_ORGADMIN_PASSWORD || "1234567";
+      const orgAdminEmail = process.env.TEST_ORGADMIN_EMAIL;
+      const orgAdminPassword = process.env.TEST_ORGADMIN_PASSWORD;
+      
+      if (!orgAdminEmail || !orgAdminPassword) {
+        throw new Error('TEST_ORGADMIN_EMAIL and TEST_ORGADMIN_PASSWORD environment variables are required');
+      }
+      
       await login(page, orgAdminEmail, orgAdminPassword);
 
       await page.goto("http://localhost:3000/users");
@@ -196,8 +206,13 @@ test.describe("User Management Tests", () => {
     test("Org Admin edits user - org auto-selected, must pick domain", async ({ page }) => {
       // Login as org admin
       await page.goto("http://localhost:3000/login");
-      const orgAdminEmail = process.env.TEST_ORGADMIN_EMAIL || "orgadmin@sanctityferme.com";
-      const orgAdminPassword = process.env.TEST_ORGADMIN_PASSWORD || "1234567";
+      const orgAdminEmail = process.env.TEST_ORGADMIN_EMAIL;
+      const orgAdminPassword = process.env.TEST_ORGADMIN_PASSWORD;
+      
+      if (!orgAdminEmail || !orgAdminPassword) {
+        throw new Error('TEST_ORGADMIN_EMAIL and TEST_ORGADMIN_PASSWORD environment variables are required');
+      }
+      
       await login(page, orgAdminEmail, orgAdminPassword);
 
       await page.goto("http://localhost:3000/users");
@@ -233,8 +248,13 @@ test.describe("User Management Tests", () => {
     test("Domain Admin creates Application User - org & domain auto-selected, must pick plot", async ({ page }) => {
       // Login as domain admin
       await page.goto("http://localhost:3000/login");
-      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL || "domadmin1@sanctityferme.com";
-      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD || "1234567";
+      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL;
+      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD;
+      
+      if (!domainAdminEmail || !domainAdminPassword) {
+        throw new Error('TEST_DOMAINADMIN_EMAIL and TEST_DOMAINADMIN_PASSWORD environment variables are required');
+      }
+      
       await login(page, domainAdminEmail, domainAdminPassword);
 
       await page.goto("http://localhost:3000/users");
@@ -289,8 +309,13 @@ test.describe("User Management Tests", () => {
     test("Domain Admin edits user - org & domain auto-selected, must pick plot", async ({ page }) => {
       // Login as domain admin
       await page.goto("http://localhost:3000/login");
-      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL || "domadmin1@sanctityferme.com";
-      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD || "1234567";
+      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL;
+      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD;
+      
+      if (!domainAdminEmail || !domainAdminPassword) {
+        throw new Error('TEST_DOMAINADMIN_EMAIL and TEST_DOMAINADMIN_PASSWORD environment variables are required');
+      }
+      
       await login(page, domainAdminEmail, domainAdminPassword);
 
       await page.goto("http://localhost:3000/users");
@@ -365,8 +390,13 @@ test.describe("User Management Tests", () => {
     test("Self-editing restrictions", async ({ page }) => {
       // Login as domain admin
       await page.goto("http://localhost:3000/login");
-      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL || "domadmin1@sanctityferme.com";
-      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD || "1234567";
+      const domainAdminEmail = process.env.TEST_DOMAINADMIN_EMAIL;
+      const domainAdminPassword = process.env.TEST_DOMAINADMIN_PASSWORD;
+      
+      if (!domainAdminEmail || !domainAdminPassword) {
+        throw new Error('TEST_DOMAINADMIN_EMAIL and TEST_DOMAINADMIN_PASSWORD environment variables are required');
+      }
+      
       await login(page, domainAdminEmail, domainAdminPassword);
 
       await page.goto("http://localhost:3000/users");
