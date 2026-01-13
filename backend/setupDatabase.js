@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('./models/User');
 const Organization = require('./models/Organization');
+require('dotenv').config();
 
 async function setupDatabase() {
   try {
@@ -19,24 +20,23 @@ async function setupDatabase() {
 
     // Create super admin user
     console.log('\n=== CREATING SUPER ADMIN USER ===');
+    const superAdminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@sanctityferme.com';
+    const superAdminPassword = process.env.SUPERADMIN_PASSWORD;
+    
+    if (!superAdminPassword) {
+      throw new Error('SUPERADMIN_PASSWORD environment variable is required');
+    }
+    
     const superAdmin = await User.create({
       username: 'superadmin',
-      email: 'superadmin@sanctityferme.com',
-      password: 'temp123', // Temporary password, will be updated with hash below
+      email: superAdminEmail,
+      password: superAdminPassword, // Will be hashed by pre-save hook
       firstName: 'Super',
       lastName: 'Admin',
       role: 'super_admin',
       isActive: true
     });
     console.log('✅ Super Admin created:', superAdmin.username);
-
-    // Update with pre-hashed password (bypassing pre-save hook)
-    const passwordHash = '$2a$10$Ks3xWi0uoINd510Hs/VsdOtHmr7OQtf0TolYheykS1sLYeN12KDiS';
-    await User.updateOne(
-      { _id: superAdmin._id },
-      { $set: { password: passwordHash } }
-    );
-    console.log('✅ Super Admin password hash set');
 
     // Update organization with the super admin as creator
     await Organization.findByIdAndUpdate(organization._id, {
@@ -45,10 +45,17 @@ async function setupDatabase() {
 
     // Create org admin user
     console.log('\n=== CREATING ORG ADMIN USER ===');
+    const orgAdminEmail = process.env.ORGADMIN_EMAIL || 'orgadmin@sanctityferme.com';
+    const orgAdminPassword = process.env.ORGADMIN_PASSWORD;
+    
+    if (!orgAdminPassword) {
+      throw new Error('ORGADMIN_PASSWORD environment variable is required');
+    }
+    
     const orgAdmin = await User.create({
       username: 'orgadmin',
-      email: 'orgadmin@sanctityferme.com',
-      password: 'org123',
+      email: orgAdminEmail,
+      password: orgAdminPassword, // Will be hashed by pre-save hook
       firstName: 'Org',
       lastName: 'Admin',
       role: 'org_admin',
@@ -59,10 +66,17 @@ async function setupDatabase() {
 
     // Create domain admin user
     console.log('\n=== CREATING DOMAIN ADMIN USER ===');
+    const domainAdminEmail = process.env.DOMAINADMIN_EMAIL || 'domainadmin@sanctityferme.com';
+    const domainAdminPassword = process.env.DOMAINADMIN_PASSWORD;
+    
+    if (!domainAdminPassword) {
+      throw new Error('DOMAINADMIN_PASSWORD environment variable is required');
+    }
+    
     const domainAdmin = await User.create({
       username: 'domainadmin',
-      email: 'domainadmin@sanctityferme.com',
-      password: 'domain123',
+      email: domainAdminEmail,
+      password: domainAdminPassword, // Will be hashed by pre-save hook
       firstName: 'Domain',
       lastName: 'Admin',
       role: 'domain_admin',
@@ -74,10 +88,17 @@ async function setupDatabase() {
 
     // Create application user
     console.log('\n=== CREATING APPLICATION USER ===');
+    const appUserEmail = process.env.APPUSER_EMAIL || 'appuser@sanctityferme.com';
+    const appUserPassword = process.env.APPUSER_PASSWORD;
+    
+    if (!appUserPassword) {
+      throw new Error('APPUSER_PASSWORD environment variable is required');
+    }
+    
     const appUser = await User.create({
       username: 'appuser',
-      email: 'appuser@sanctityferme.com',
-      password: 'app123',
+      email: appUserEmail,
+      password: appUserPassword, // Will be hashed by pre-save hook
       firstName: 'App',
       lastName: 'User',
       role: 'application_user',
@@ -94,12 +115,7 @@ async function setupDatabase() {
     console.log('✅ Org Admin:', orgAdmin.username, `(${orgAdmin._id})`);
     console.log('✅ Domain Admin:', domainAdmin.username, `(${domainAdmin._id})`);
     console.log('✅ App User:', appUser.username, `(${appUser._id})`);
-
-    console.log('\n=== LOGIN CREDENTIALS ===');
-    console.log('Super Admin: superadmin@sanctityferme.com / (password hash set)');
-    console.log('Org Admin: orgadmin@sanctityferme.com / org123');
-    console.log('Domain Admin: domainadmin@sanctityferme.com / domain123');
-    console.log('App User: appuser@sanctityferme.com / app123');
+    console.log('✅ Users created successfully. Credentials are stored securely.');
 
     await mongoose.connection.close();
     console.log('\n✅ Database setup completed successfully!');
