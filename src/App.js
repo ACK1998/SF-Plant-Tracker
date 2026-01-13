@@ -130,6 +130,7 @@ function App() {
         <ErrorBoundary>
           <Routes>
             <Route path="/plant/:id" element={<PublicPlantViewWrapper />} />
+            <Route path="*" element={<Navigate to="/plant/:id" replace />} />
           </Routes>
         </ErrorBoundary>
       </DarkModeProvider>
@@ -259,6 +260,7 @@ function App() {
             {/* Main Content */}
             <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
               <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard user={user} selectedState={selectedState} />} />
                 
                 {/* Plants Routes */}

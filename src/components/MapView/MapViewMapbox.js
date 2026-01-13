@@ -245,7 +245,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   // Generate QR code when plant is selected
   useEffect(() => {
     if (selectedItem?.type === 'plant' && selectedItem?.data?._id) {
-      const plantUrl = `${window.location.origin}/plants/${selectedItem.data._id}`;
+      const plantUrl = `${window.location.origin}/plant/${selectedItem.data._id}`;
       QRCode.toDataURL(plantUrl, { width: 150, margin: 1 })
         .then(url => setQrCodeUrl(url))
         .catch(err => console.error('QR Code error:', err));
