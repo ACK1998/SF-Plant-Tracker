@@ -137,7 +137,11 @@ async function setupDatabase() {
     console.log('\n✅ Database setup completed successfully!');
   } catch (error) {
     console.error('❌ Error setting up database:', error);
+    process.exit(1);
   }
 }
 
-setupDatabase();
+// Only run if this file is executed directly (not when imported)
+if (require.main === module) {
+  setupDatabase();
+}
