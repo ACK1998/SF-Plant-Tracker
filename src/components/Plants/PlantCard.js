@@ -39,12 +39,81 @@ function PlantCard({ plant, onUpdate, onDelete, onAddStatus, onEdit, onStatus, o
   // Download QR code function
   const downloadQRCode = () => {
     if (qrCodeUrl) {
-      const link = document.createElement('a');
-      link.href = qrCodeUrl;
-      link.download = `${plant.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qr_code.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas dimensions
+      const qrSize = 300;
+      const padding = 40;
+      const textHeight = 60;
+      const emojiSize = 40;
+      const spacing = 20;
+      
+      canvas.width = qrSize + (padding * 2);
+      canvas.height = qrSize + (padding * 2) + textHeight + emojiSize + spacing;
+      
+      // Fill white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Load QR code image
+      const qrImage = new Image();
+      qrImage.onload = () => {
+        // Draw QR code
+        ctx.drawImage(qrImage, padding, padding, qrSize, qrSize);
+        
+        // Get plant emoji
+        const plantEmoji = findPlantEmoji(plant.name, plant.category);
+        
+        // Draw emoji
+        ctx.font = `${emojiSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const emojiY = padding + qrSize + spacing + (emojiSize / 2);
+        ctx.fillText(plantEmoji, canvas.width / 2, emojiY);
+        
+        // Draw plant name
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const textY = emojiY + (emojiSize / 2) + 10;
+        
+        // Wrap text if too long
+        const maxWidth = canvas.width - (padding * 2);
+        const words = plant.name.split(' ');
+        let line = '';
+        let y = textY;
+        
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = ctx.measureText(testLine);
+          const testWidth = metrics.width;
+          
+          if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line, canvas.width / 2, y);
+            line = words[n] + ' ';
+            y += 30;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, canvas.width / 2, y);
+        
+        // Convert canvas to image and download
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${plant.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qr_code.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        });
+      };
+      
+      qrImage.src = qrCodeUrl;
     }
   };
 
