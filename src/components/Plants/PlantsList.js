@@ -256,6 +256,7 @@ function PlantsList({ user, selectedState }) {
   }, []);
 
   // Get plots from plant data (fallback if API plots are empty) - moved before getAvailablePlots
+  // eslint-disable-next-line no-unused-vars
   const plotsFromPlants = plants.reduce((acc, plant) => {
     let plotId, plotName;
     

@@ -73,7 +73,7 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [plant._id, plant.image, plant.plantedBy, plant.createdAt]);
+  }, [plant._id, plant.image, plant.plantedBy, plant.createdAt, plant.plantedDate]);
 
   // Load missing months from API
   const loadMissingMonths = useCallback(async () => {
@@ -92,7 +92,8 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
     console.log('PlantImageUpload - Plant object:', plant);
     loadPlantImages();
     loadMissingMonths();
-  }, [plant._id, loadPlantImages, loadMissingMonths]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plant._id, plant.image, plant.plantedBy, plant.createdAt, plant.plantedDate, loadPlantImages, loadMissingMonths]);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];

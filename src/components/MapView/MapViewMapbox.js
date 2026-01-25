@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Map, NavigationControl, Source, Layer, Popup, GeolocateControl, Marker } from 'react-map-gl/mapbox';
+import { Map, NavigationControl, Source, Layer, GeolocateControl, Marker } from 'react-map-gl/mapbox';
 import QRCode from 'qrcode';
 import { Search, Filter, User, Map as MapIcon, Leaf, MapPin, Sprout, X, Navigation, Calendar, User as UserIcon, Ruler, Building, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApi } from '../../contexts/ApiContext';
@@ -364,6 +364,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
 
 
   // Helper function to check if plot is within domain boundary using rectangular boundaries
+  // eslint-disable-next-line no-unused-vars
   const isPlotWithinDomain = (plot, domain) => {
     if (!plot.latitude || !plot.longitude || !domain.latitude || !domain.longitude) {
       return true; // Skip validation if coordinates missing
@@ -384,6 +385,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   };
 
   // Helper function to check if plant is within plot boundary
+  // eslint-disable-next-line no-unused-vars
   const isPlantWithinPlot = (plant, plot) => {
     if (!plant.latitude || !plant.longitude || !plot.latitude || !plot.longitude) {
       return false;
