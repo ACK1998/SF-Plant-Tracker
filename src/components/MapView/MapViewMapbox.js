@@ -186,6 +186,9 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
   // Categories state
   const [categories, setCategories] = useState([]);
   
+  // Plant types state - all types from database
+  const [allPlantTypes, setAllPlantTypes] = useState([]);
+  
   // Collapsible sections state
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [layersExpanded, setLayersExpanded] = useState(false);
@@ -229,6 +232,26 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     };
 
     loadCategories();
+  }, []);
+
+  // Load all plant types from database
+  useEffect(() => {
+    const loadPlantTypes = async () => {
+      try {
+        const response = await api.getAllPlantTypes();
+        if (response.success) {
+          setAllPlantTypes(response.data || []);
+        } else {
+          console.error('Failed to load plant types:', response.message);
+          setAllPlantTypes([]);
+        }
+      } catch (error) {
+        console.error('Error loading plant types:', error);
+        setAllPlantTypes([]);
+      }
+    };
+
+    loadPlantTypes();
   }, []);
   
   // Layer visibility - MOVED TO TOP BEFORE ANY REFERENCES
@@ -797,8 +820,9 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
     return plot ? plot.name : 'Unknown Plot';
   };
 
-  // Get unique plant types, varieties, and statuses from actual plant data
-  const uniquePlantTypes = [...new Set(mapViewPlants.map(plant => plant.type).filter(Boolean))];
+  // Get unique plant types from database (all types) instead of just from loaded plants
+  // This ensures all types in the database are available in the filter dropdown
+  const uniquePlantTypes = allPlantTypes.map(type => type.name).filter(Boolean);
   const uniquePlantVarieties = [...new Set(mapViewPlants.map(plant => plant.variety).filter(Boolean))];
   const uniquePlantStatuses = [...new Set(mapViewPlants.map(plant => plant.health).filter(Boolean))];
 
@@ -1906,7 +1930,7 @@ const MapViewMapbox = React.memo(function MapViewMapbox({ user, selectedState })
                   <SearchableDropdown
                     options={[
                       { value: 'all', label: 'All Types' },
-                      ...uniquePlantTypes.map(type => ({ value: type, label: type }))
+                      ...uniquePlantTypes.map(type => ({ value: type, label: type })).sort()
                     ]}
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}

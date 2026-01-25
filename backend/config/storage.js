@@ -11,11 +11,16 @@ const path = require('path');
  */
 const uploadFile = async (fileBuffer, destination, metadata = {}) => {
   try {
+    // Check if GCP credentials are available (either KEYFILE or KEY_FILE)
+    const hasGCPCredentials = process.env.GOOGLE_CLOUD_PROJECT_ID && 
+                               (process.env.GOOGLE_CLOUD_KEYFILE || process.env.GOOGLE_CLOUD_KEY_FILE);
+    
     // Check if we're in a serverless environment
     const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
     
-    // In serverless or production with GCS, use Google Cloud Storage
-    if (isServerless || (process.env.NODE_ENV === 'production' && process.env.GOOGLE_CLOUD_PROJECT_ID)) {
+    // Use GCP if credentials are available (in any environment)
+    // Or if in serverless (must use GCP)
+    if (hasGCPCredentials || isServerless) {
       if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
         throw new Error('Google Cloud Storage is required in serverless environments. Please configure GOOGLE_CLOUD_PROJECT_ID.');
       }
@@ -29,7 +34,7 @@ const uploadFile = async (fileBuffer, destination, metadata = {}) => {
         storage: 'gcs'
       };
     } else {
-      // Use local storage only in non-serverless development
+      // Use local storage only if GCP credentials are not configured
       const uploadDir = path.join(__dirname, '../uploads/plant-images');
       const fullPath = path.join(uploadDir, destination);
       
@@ -62,7 +67,15 @@ const uploadFile = async (fileBuffer, destination, metadata = {}) => {
  */
 const deleteFile = async (filename) => {
   try {
-    if (process.env.NODE_ENV === 'production' && process.env.GOOGLE_CLOUD_PROJECT_ID) {
+    // Check if GCP credentials are available
+    const hasGCPCredentials = process.env.GOOGLE_CLOUD_PROJECT_ID && 
+                               (process.env.GOOGLE_CLOUD_KEYFILE || process.env.GOOGLE_CLOUD_KEY_FILE);
+    
+    // Check if we're in a serverless environment
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    // Use GCP if credentials are available or in serverless
+    if (hasGCPCredentials || isServerless) {
       // Delete from Google Cloud Storage
       await deleteFromGCS(filename);
       return true;

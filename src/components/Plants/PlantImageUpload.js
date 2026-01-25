@@ -468,14 +468,18 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
               return new Date(b.uploadedAt) - new Date(a.uploadedAt);
             })
             .map((image) => {
-              const isUrlImage = image.url && image.url.startsWith('http');
-              const imageSrc = isUrlImage ? image.url : `${getImageUrl(image.url)}?t=${Date.now()}`;
+              // Check if it's a GCS URL (should be rendered as image) or external URL (show placeholder)
+              const isGCSUrl = image.url && image.url.includes('storage.googleapis.com');
+              const isExternalUrl = image.url && image.url.startsWith('http') && !isGCSUrl;
+              const imageSrc = isGCSUrl || !image.url?.startsWith('http') 
+                ? (image.url?.startsWith('http') ? image.url : `${getImageUrl(image.url)}?t=${Date.now()}`)
+                : image.url;
               
               return (
                 <div key={image.id} className="card group">
                   <div className="relative">
-                    {isUrlImage ? (
-                      // URL Image - render as clickable link
+                    {isExternalUrl ? (
+                      // External URL Image (like Google Photos) - render as clickable link
                       <a
                         href={image.url}
                         target="_blank"
@@ -493,7 +497,7 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                         </div>
                       </a>
                     ) : (
-                      // File Image - render as image
+                      // GCS URL or local file - render as image
                       <img
                         src={imageSrc}
                         alt={`${plant.name} - ${getMonthName(image.month, image.id === 'main-image')}`}
@@ -501,16 +505,34 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                         onClick={() => setSelectedImage(image)}
                         onError={(e) => {
                           console.error('Image failed to load:', e.target.src);
+                          // Show fallback placeholder on error
                           e.target.style.display = 'none';
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) fallback.style.display = 'flex';
                         }}
                         onLoad={() => {
                           console.log('Image loaded successfully:', image.url);
                         }}
                       />
                     )}
+                    
+                    {/* Fallback placeholder (hidden by default, shown on error) */}
+                    {!isExternalUrl && (
+                      <div className="fallback-icon absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 flex items-center justify-center" style={{display: 'none'}}>
+                        <div className="text-center">
+                          <ImageIcon className="h-12 w-12 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            {image.id === 'main-image' ? 'Main Plant Image' : getMonthName(image.month)}
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Image unavailable
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   
-                    {/* Overlay Actions - only show for file images */}
-                    {!isUrlImage && (
+                    {/* Overlay Actions - only show for actual images (not external URLs) */}
+                    {!isExternalUrl && (
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
                           <button
@@ -544,7 +566,7 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                     <h4 className="font-medium text-gray-900 dark:text-gray-100">
                       {getMonthName(image.month, image.id === 'main-image')}
                     </h4>
-                      {isUrlImage && (
+                      {isExternalUrl && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                           <ImageIcon className="h-3 w-3 mr-1" />
                           Link
@@ -558,9 +580,9 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                       }
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {isUrlImage ? 'External Link' : image.size}
+                      {isExternalUrl ? 'External Link' : image.size}
                     </p>
-                    {isUrlImage && (
+                    {isExternalUrl && (
                       <a
                         href={image.url}
                         target="_blank"
@@ -792,64 +814,74 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
               </div>
               
               <div className="p-4">
-                {selectedImage.url && selectedImage.url.startsWith('http') ? (
-                  // URL Image - show link information
-                  <div className="text-center py-12">
-                    <div className="bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded-lg p-8 mb-6">
-                      <ImageIcon className="h-16 w-16 text-blue-600 dark:text-blue-400 mx-auto mb-4" />
-                      <h4 className="text-lg font-medium text-blue-800 dark:text-blue-200 mb-2">
-                        External Image Link
-                      </h4>
-                      <p className="text-blue-600 dark:text-blue-400 mb-4">
-                        This image is hosted externally
-                      </p>
-                      <a
-                        href={selectedImage.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        Open Image Link
-                      </a>
-                    </div>
-                    <div className="text-left space-y-2">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        <strong>URL:</strong> 
-                        <a
-                          href={selectedImage.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ml-2 break-all"
-                        >
-                          {selectedImage.url}
-                        </a>
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        <strong>Type:</strong> External Link
-                      </p>
-                      {selectedImage.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          <strong>Description:</strong> {selectedImage.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  // File Image - show image
-                  <>
-                    <img
-                      src={`${getImageUrl(selectedImage.url)}?t=${Date.now()}`}
-                      alt={`${plant.name} - ${getMonthName(selectedImage.month, selectedImage.id === 'main-image')}`}
-                      className="w-full h-auto rounded-lg"
-                      onError={(e) => {
-                        console.error('Full-screen image failed to load:', e.target.src);
-                        e.target.style.display = 'none';
-                      }}
-                      onLoad={() => {
-                        console.log('Full-screen image loaded successfully:', selectedImage.url);
-                      }}
-                    />
+                {(() => {
+                  const isGCSUrl = selectedImage.url && selectedImage.url.includes('storage.googleapis.com');
+                  const isExternalUrl = selectedImage.url && selectedImage.url.startsWith('http') && !isGCSUrl;
+                  const imageSrc = isGCSUrl 
+                    ? selectedImage.url 
+                    : (selectedImage.url?.startsWith('http') ? selectedImage.url : `${getImageUrl(selectedImage.url)}?t=${Date.now()}`);
+                  
+                  if (isExternalUrl) {
+                    // External URL Image (like Google Photos) - show link information
+                    return (
+                      <div className="text-center py-12">
+                        <div className="bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded-lg p-8 mb-6">
+                          <ImageIcon className="h-16 w-16 text-blue-600 dark:text-blue-400 mx-auto mb-4" />
+                          <h4 className="text-lg font-medium text-blue-800 dark:text-blue-200 mb-2">
+                            External Image Link
+                          </h4>
+                          <p className="text-blue-600 dark:text-blue-400 mb-4">
+                            This image is hosted externally
+                          </p>
+                          <a
+                            href={selectedImage.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Open Image Link
+                          </a>
+                        </div>
+                        <div className="text-left space-y-2">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <strong>URL:</strong> 
+                            <a
+                              href={selectedImage.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ml-2 break-all"
+                            >
+                              {selectedImage.url}
+                            </a>
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <strong>Type:</strong> External Link
+                          </p>
+                          {selectedImage.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Description:</strong> {selectedImage.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // GCS URL or local file - show image
+                    return (
+                      <>
+                        <img
+                          src={imageSrc}
+                          alt={`${plant.name} - ${getMonthName(selectedImage.month, selectedImage.id === 'main-image')}`}
+                          className="w-full h-auto rounded-lg"
+                          onError={(e) => {
+                            console.error('Full-screen image failed to load:', e.target.src);
+                            e.target.style.display = 'none';
+                          }}
+                          onLoad={() => {
+                            console.log('Full-screen image loaded successfully:', selectedImage.url);
+                          }}
+                        />
                     
                     <div className="mt-4 space-y-2">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -858,6 +890,19 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         <strong>File Size:</strong> {selectedImage.size || 'Unknown'}
                       </p>
+                      {isGCSUrl && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          <strong>URL:</strong> 
+                          <a
+                            href={selectedImage.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ml-2 break-all"
+                          >
+                            {selectedImage.url}
+                          </a>
+                        </p>
+                      )}
                       {selectedImage.description && (
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                           <strong>Description:</strong> {selectedImage.description}
@@ -865,7 +910,9 @@ const PlantImageUpload = ({ plant, onImageUpload, onImageDelete, onClose }) => {
                       )}
                     </div>
                   </>
-                )}
+                    );
+                  }
+                })()}
               </div>
             </div>
           </div>

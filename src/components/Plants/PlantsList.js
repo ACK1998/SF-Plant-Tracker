@@ -52,6 +52,9 @@ function PlantsList({ user, selectedState }) {
   // Categories state
   const [categories, setCategories] = useState([]);
   
+  // Plant types state - all types from database
+  const [allPlantTypes, setAllPlantTypes] = useState([]);
+  
   const [searchParams] = useSearchParams();
   const filteringInProgress = useRef(false);
   const initialFilterApplied = useRef(false);
@@ -194,6 +197,26 @@ function PlantsList({ user, selectedState }) {
     };
 
     loadCategories();
+  }, []);
+
+  // Load all plant types from database
+  useEffect(() => {
+    const loadPlantTypes = async () => {
+      try {
+        const response = await api.getAllPlantTypes();
+        if (response.success) {
+          setAllPlantTypes(response.data || []);
+        } else {
+          console.error('Failed to load plant types:', response.message);
+          setAllPlantTypes([]);
+        }
+      } catch (error) {
+        console.error('Error loading plant types:', error);
+        setAllPlantTypes([]);
+      }
+    };
+
+    loadPlantTypes();
   }, []);
 
   // Cleanup URL parameters when component unmounts
@@ -377,8 +400,9 @@ function PlantsList({ user, selectedState }) {
 
 
 
-  // Get unique plant types from actual plant data
-  const uniquePlantTypes = [...new Set(plants.map(plant => plant.type).filter(Boolean))];
+  // Get unique plant types from database (all types) instead of just from loaded plants
+  // This ensures all types in the database are available in the filter dropdown
+  const uniquePlantTypes = allPlantTypes.map(type => type.name).filter(Boolean);
   
   // Get unique plant varieties from actual plant data
   const uniquePlantVarieties = [...new Set(plants.map(plant => plant.variety).filter(Boolean))];
@@ -1065,7 +1089,7 @@ function PlantsList({ user, selectedState }) {
                   <SearchableDropdown
                     options={[
                       { value: 'all', label: 'All Types' },
-                      ...uniquePlantTypes.map(type => ({ value: type, label: type }))
+                      ...uniquePlantTypes.map(type => ({ value: type, label: type })).sort()
                     ]}
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}

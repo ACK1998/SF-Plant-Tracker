@@ -113,42 +113,93 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
       });
     }
 
-    // Check if image already exists for this month
+    // Check if image already exists for this month (including inactive ones)
+    // The unique index prevents duplicates regardless of isActive status
     const existingImage = await PlantImage.findOne({ 
       plantId, 
-      month, 
-      isActive: true 
+      month
     });
-
-    if (existingImage) {
-      // Delete the uploaded file since we won't use it
-      await fs.unlink(file.path);
-      return res.status(409).json({ 
-        success: false, 
-        message: 'Image already exists for this month' 
-      });
+    
+    // Upload file to storage (GCS or local)
+    const { uploadFile } = require('../config/storage');
+    const destination = `plant-${plantId}-${month}-${Date.now()}${path.extname(file.originalname)}`;
+    
+    // Get file buffer (for memory storage) or read from disk
+    let fileBuffer;
+    if (file.buffer) {
+      fileBuffer = file.buffer;
+    } else {
+      fileBuffer = await fs.readFile(file.path);
+    }
+    
+    // Upload to storage (GCS or local)
+    const uploadResult = await uploadFile(fileBuffer, destination, {
+      mimetype: file.mimetype
+    });
+    
+    // Clean up local file if it was saved to disk
+    if (file.path && !isServerless) {
+      try {
+        await fs.unlink(file.path);
+      } catch (error) {
+        console.error('Error deleting temporary file:', error);
+      }
     }
 
-    // Create image URL (in production, this would be a CDN URL)
-    const imageUrl = `/uploads/plant-images/${file.filename}`;
+    let plantImage;
+    
+    if (existingImage) {
+      // Update existing image instead of creating new one
+      // Delete old file from storage (GCS or local)
+      try {
+        const { deleteFile } = require('../config/storage');
+        // Extract filename from imageUrl (could be GCS URL or local path)
+        const oldUrl = existingImage.imageUrl;
+        let oldFilename;
+        if (oldUrl.startsWith('http')) {
+          // GCS URL: https://storage.googleapis.com/bucket-name/filename
+          oldFilename = oldUrl.split('/').pop();
+        } else {
+          // Local path: /uploads/plant-images/filename
+          oldFilename = oldUrl.split('/').pop();
+        }
+        await deleteFile(oldFilename);
+      } catch (error) {
+        console.error('Error deleting old image file:', error);
+        // Continue anyway - we'll upload the new file
+      }
 
-    // Generate unique image key
-    const imageKey = `plant-${plantId}-${month}-${Date.now()}`;
+      // Update existing image record
+      plantImage = existingImage;
+      plantImage.imageUrl = uploadResult.url;
+      plantImage.imageKey = `plant-${plantId}-${month}-${Date.now()}`;
+      plantImage.fileName = file.originalname;
+      plantImage.fileSize = uploadResult.size;
+      plantImage.mimeType = uploadResult.mimetype;
+      plantImage.description = description || `Plant photo for ${month}`;
+      plantImage.uploadedBy = req.user._id;
+      plantImage.isActive = true; // Reactivate if it was inactive
+      plantImage.updatedAt = new Date();
+      
+      await plantImage.save();
+    } else {
+      // Create new image record
+      const imageKey = `plant-${plantId}-${month}-${Date.now()}`;
 
-    // Create plant image record
-    const plantImage = new PlantImage({
-      plantId,
-      month,
-      imageUrl,
-      imageKey,
-      fileName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      description: description || `Plant photo for ${month}`,
-      uploadedBy: req.user._id
-    });
+      plantImage = new PlantImage({
+        plantId,
+        month,
+        imageUrl: uploadResult.url,
+        imageKey,
+        fileName: file.originalname,
+        fileSize: uploadResult.size,
+        mimeType: uploadResult.mimetype,
+        description: description || `Plant photo for ${month}`,
+        uploadedBy: req.user._id
+      });
 
-    await plantImage.save();
+      await plantImage.save();
+    }
 
     res.status(201).json({
       success: true,
@@ -167,7 +218,7 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
     console.error('Error uploading plant image:', error);
     
     // Clean up uploaded file if it exists
-    if (req.file) {
+    if (req.file && req.file.path) {
       try {
         await fs.unlink(req.file.path);
       } catch (unlinkError) {
@@ -175,9 +226,18 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
       }
     }
 
+    // Handle duplicate key error specifically
+    if (error.code === 11000) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Image already exists for this month. Please try again or use the replace function.' 
+      });
+    }
+
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to upload image' 
+      message: 'Failed to upload image',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
