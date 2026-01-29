@@ -17,7 +17,7 @@ function EditPlantTypeModal({ onClose, onUpdate, plantType }) {
 
   const [errors, setErrors] = useState({});
   const [dbCategories, setDbCategories] = useState([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [, setLoadingCategories] = useState(true);
 
   // Load categories from database
   useEffect(() => {

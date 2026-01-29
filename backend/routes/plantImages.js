@@ -51,6 +51,57 @@ const upload = multer({
   }
 });
 
+// Get recent image uploads (for dashboard Recent Activity)
+router.get('/recent', auth, async (req, res) => {
+  try {
+    const filter = { isActive: true };
+    if (req.user.role === 'org_admin' || req.user.role === 'domain_admin' || req.user.role === 'application_user') {
+      filter.organizationId = req.user.organizationId;
+    }
+
+    const plants = await Plant.find(filter).select('_id').lean();
+    const plantIds = plants.map(p => p._id);
+    if (plantIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 50);
+    const days = Math.min(parseInt(req.query.days, 10) || 30, 90);
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const images = await PlantImage.find({
+      plantId: { $in: plantIds },
+      isActive: true,
+      createdAt: { $gte: since }
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('plantId', 'name health')
+      .populate('uploadedBy', 'firstName lastName')
+      .lean();
+
+    const data = images.map(img => ({
+      id: img._id,
+      plantId: img.plantId?._id,
+      plantName: img.plantId?.name,
+      plantHealth: img.plantId?.health,
+      month: img.month,
+      uploadedAt: img.createdAt,
+      uploadedBy: img.uploadedBy ? `${img.uploadedBy.firstName || ''} ${img.uploadedBy.lastName || ''}`.trim() || 'Unknown' : 'Unknown'
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching recent plant images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recent plant images',
+      error: error.message
+    });
+  }
+});
+
 // Get all images for a plant
 router.get('/plant/:plantId', auth, async (req, res) => {
   try {
@@ -182,6 +233,7 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
       plantImage.updatedAt = new Date();
       
       await plantImage.save();
+      await Plant.findByIdAndUpdate(plantId, { $set: { updatedAt: new Date() } });
     } else {
       // Create new image record
       const imageKey = `plant-${plantId}-${month}-${Date.now()}`;
@@ -199,6 +251,7 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
       });
 
       await plantImage.save();
+      await Plant.findByIdAndUpdate(plantId, { $set: { updatedAt: new Date() } });
     }
 
     res.status(201).json({
@@ -294,6 +347,7 @@ router.post('/upload-url', auth, async (req, res) => {
     });
 
     await plantImage.save();
+    await Plant.findByIdAndUpdate(plantId, { $set: { updatedAt: new Date() } });
 
     res.status(201).json({
       success: true,
@@ -357,6 +411,7 @@ router.put('/replace/:imageId', auth, upload.single('image'), async (req, res) =
     existingImage.updatedAt = new Date();
 
     await existingImage.save();
+    await Plant.findByIdAndUpdate(existingImage.plantId, { $set: { updatedAt: new Date() } });
 
     res.status(201).json({
       success: true,

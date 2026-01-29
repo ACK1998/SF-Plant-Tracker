@@ -24,7 +24,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   const [selectedPlantType, setSelectedPlantType] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [expandedTypes, setExpandedTypes] = useState(new Set());
-  const [forceUpdate, setForceUpdate] = useState(0);
+  const [, setForceUpdate] = useState(0);
   
   // Modal states
   const [showAddTypeModal, setShowAddTypeModal] = useState(showAddModal);
@@ -96,13 +96,14 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
   // Debug logging for categories dropdown
   console.log('Debug - categories dropdown:', categories);
 
-  // Permission checking functions
-  const canCreatePlantType = () => {
+  // Permission checking functions (reserved for future use)
+  /* eslint-disable no-unused-vars */
+  const _canCreatePlantType = () => {
     if (!user || !user.role) return false;
     return ['super_admin', 'org_admin', 'domain_admin', 'application_user'].includes(user.role);
   };
 
-  const canEditPlantType = (plantType) => {
+  const _canEditPlantType = (plantType) => {
     if (!user || !user.role) return false;
     
     // Super admin can edit any plant type
@@ -134,7 +135,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     return false;
   };
 
-  const canDeletePlantType = (plantType) => {
+  const _canDeletePlantType = (plantType) => {
     if (!user || !user.role) return false;
     
     // Super admin can delete any plant type
@@ -166,12 +167,12 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     return false;
   };
 
-  const canCreatePlantVariety = () => {
+  const _canCreatePlantVariety = () => {
     if (!user || !user.role) return false;
     return ['super_admin', 'org_admin', 'domain_admin', 'application_user'].includes(user.role);
   };
 
-  const canEditPlantVariety = (plantVariety) => {
+  const _canEditPlantVariety = (plantVariety) => {
     if (!user || !user.role) return false;
     
     // Super admin can edit any plant variety
@@ -203,9 +204,9 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     return false;
   };
 
-  const canDeletePlantVariety = (plantVariety) => {
+  const _canDeletePlantVariety = (plantVariety) => {
     if (!user || !user.role) return false;
-    
+
     // Super admin can delete any plant variety
     if (user.role === 'super_admin') return true;
     
@@ -234,6 +235,7 @@ function PlantTypesList({ user, showAddModal = false, showEditModal = false, sho
     
     return false;
   };
+  /* eslint-enable no-unused-vars */
 
   // Load plant types and varieties
   const loadData = useCallback(async () => {

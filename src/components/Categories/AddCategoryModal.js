@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Leaf, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { Leaf } from 'lucide-react';
 import Dialog from '../common/Dialog';
 import api from '../../services/api';
 

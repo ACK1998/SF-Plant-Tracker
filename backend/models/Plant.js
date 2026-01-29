@@ -154,5 +154,6 @@ const plantSchema = new mongoose.Schema({
 plantSchema.index({ organizationId: 1, plotId: 1 });
 plantSchema.index({ plantedDate: -1 });
 plantSchema.index({ health: 1 });
+plantSchema.index({ updatedAt: -1 });
 
 module.exports = mongoose.model('Plant', plantSchema);

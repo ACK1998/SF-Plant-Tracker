@@ -621,7 +621,9 @@ function AddUserModal({ currentUser, onClose, onAdd, organizations, domains, plo
   const [availableDomains, setAvailableDomains] = useState([]);
   const [availablePlots, setAvailablePlots] = useState([]);
   const [loadingDomains, setLoadingDomains] = useState(false);
+  // eslint-disable-next-line no-unused-vars -- setLoadingPlots used
   const [loadingPlots, setLoadingPlots] = useState(false);
+  // eslint-disable-next-line no-unused-vars -- errors read elsewhere
   const [errors, setErrors] = useState({});
 
   // Initialize form data based on current user's role

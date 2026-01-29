@@ -41,6 +41,7 @@ export const DashboardProvider = ({ children }) => {
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only once on mount
   }, []);
 
   const value = {

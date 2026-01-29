@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Info, Ruler, Clock, Droplets, Thermometer, Sun, Cloud, Wind, Sprout, AlertCircle, Lightbulb, Leaf } from 'lucide-react';
+import { Calendar, Info, Ruler, Clock, Droplets, Thermometer, Sun, Cloud, Sprout, AlertCircle, Lightbulb, Leaf } from 'lucide-react';
 
 /**
  * Comprehensive Plant Details Component

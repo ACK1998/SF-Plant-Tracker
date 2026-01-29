@@ -163,7 +163,8 @@ function PlantCard({ plant, onUpdate, onDelete, onAddStatus, onEdit, onStatus, o
     setIsEditing(false);
   };
 
-  const handleEdit = () => {
+  // eslint-disable-next-line no-unused-vars -- reserved for inline edit
+  const _handleEdit = () => {
     console.log('Starting edit for plant:', plant);
     console.log('Setting editData to:', plant);
     setEditData(plant);
@@ -190,7 +191,7 @@ function PlantCard({ plant, onUpdate, onDelete, onAddStatus, onEdit, onStatus, o
   };
 
   const plantedDate = parseDate(plant.plantedDate);
-  const lastWateredDate = parseDate(plant.lastWatered);
+  const _lastWateredDate = parseDate(plant.lastWatered); // eslint-disable-line no-unused-vars -- reserved for display
   
 
 

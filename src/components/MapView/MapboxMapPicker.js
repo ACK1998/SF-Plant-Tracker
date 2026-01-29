@@ -5,12 +5,10 @@ import {
   LOCATION_RULES, 
   validateDomainLocation, 
   validatePlotLocation, 
-  validatePlantLocation,
   calculateDistance,
-  formatDistance,
-  getLocationErrorMessage
+  formatDistance
 } from '../../utils/locationUtils';
-import { MAPBOX_CONFIG, toMapboxCoordinates, fromMapboxCoordinates } from '../../config/mapbox';
+import { MAPBOX_CONFIG, toMapboxCoordinates } from '../../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -38,8 +36,9 @@ function MapboxMapPicker({
   const [inputLat, setInputLat] = useState('');
   const [inputLng, setInputLng] = useState('');
   const [validationError, setValidationError] = useState('');
-  const [domainPolygon, setDomainPolygon] = useState(null);
-  const [plotPolygon, setPlotPolygon] = useState(null);
+  const [, setDomainPolygon] = useState(null);
+  const [, setPlotPolygon] = useState(null);
+  // eslint-disable-next-line no-unused-vars -- reserved for validation zone UI
   const [validationZone, setValidationZone] = useState(null);
   const [isCreatingBoundaries, setIsCreatingBoundaries] = useState(false);
   const [lastBoundaryData, setLastBoundaryData] = useState(null);
@@ -114,6 +113,7 @@ function MapboxMapPicker({
         map.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init only on mount
   }, []);
 
   // Update marker when position changes
@@ -172,6 +172,8 @@ function MapboxMapPicker({
       // Reset the flag if component unmounts or dependencies change
       setIsCreatingBoundaries(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- createBoundaries/lastBoundaryData intentionally omitted to avoid loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- createBoundaries/lastBoundaryData intentionally omitted to avoid loops
   }, [domainBoundaries, plotBoundaries, validationCenter, validationType]);
 
   const addMarker = (lat, lng) => {

@@ -88,66 +88,40 @@ router.get('/', auth, async (req, res) => {
         { description: { $regex: search, $options: 'i' } }
       ];
     }
-    
 
+    // When hasRecentImages or notUpdatedMonthly: filter by plant IDs at query level (before pagination)
+    const useRecentImagesFilter = hasRecentImages === 'true' || notUpdatedMonthly === 'true';
+    if (useRecentImagesFilter) {
+      const currentDate = new Date();
+      const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      const plantIdsWithRecentImages = await PlantImage.find({
+        month: currentMonth,
+        isActive: true
+      }).distinct('plantId');
+
+      if (hasRecentImages === 'true') {
+        filter._id = { $in: plantIdsWithRecentImages };
+      } else {
+        filter._id = { $nin: plantIdsWithRecentImages };
+      }
+      if (!filter.health) {
+        filter.health = { $ne: 'deceased' };
+      }
+    }
 
     const plants = await Plant.find(filter)
       .populate('plotId', 'name')
       .populate('domainId', 'name')
       .populate('organizationId', 'name')
       .populate('plantedBy', 'firstName lastName username')
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    // Filter for plants not updated monthly if requested
-    let filteredPlants = plants;
-    if (notUpdatedMonthly === 'true') {
-      // Get current month in YYYY-MM format
-      const currentDate = new Date();
-      const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      // Get all plant IDs that have images for current month only
-      const plantsWithRecentImages = await PlantImage.find({
-        month: currentMonth,
-        isActive: true
-      }).distinct('plantId');
-      
-      filteredPlants = plants.filter(plant => {
-        // Exclude deceased plants - they don't need monthly image updates
-        if (plant.health === 'deceased') {
-          return false;
-        }
-        
-        // If plant has no recent images, it needs monthly update
-        return !plantsWithRecentImages.some(plantId => plantId.toString() === plant._id.toString());
-      });
-    } else if (hasRecentImages === 'true') {
-      // Get current month in YYYY-MM format
-      const currentDate = new Date();
-      const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      // Get all plant IDs that have images for current month only
-      const plantsWithRecentImages = await PlantImage.find({
-        month: currentMonth,
-        isActive: true
-      }).distinct('plantId');
-      
-      filteredPlants = plants.filter(plant => {
-        // Exclude deceased plants
-        if (plant.health === 'deceased') {
-          return false;
-        }
-        
-        // If plant has recent images, include it
-        return plantsWithRecentImages.some(plantId => plantId.toString() === plant._id.toString());
-      });
-    }
+    const total = await Plant.countDocuments(filter);
 
-    const total = (notUpdatedMonthly === 'true' || hasRecentImages === 'true') ? filteredPlants.length : await Plant.countDocuments(filter);
-    
     // Add editable flag and handle plantedBy name
-    const plantsWithEditFlag = filteredPlants.map(plant => {
+    const plantsWithEditFlag = plants.map(plant => {
       const plantObj = plant.toObject();
       plantObj.editable = canEditPlant(req.user, plant);
       

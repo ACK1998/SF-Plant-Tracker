@@ -26,7 +26,7 @@ function AddPlantVarietyModal({ onClose, onAdd, onSuccess, selectedPlantType, pl
 
   const [errors, setErrors] = useState({});
   const [dbCategories, setDbCategories] = useState([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [, setLoadingCategories] = useState(true);
 
   // Load categories from database
   useEffect(() => {

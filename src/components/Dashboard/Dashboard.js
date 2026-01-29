@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Users, MapPin, Leaf, TrendingUp, Calendar, AlertTriangle, Building, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, Users, MapPin, Leaf, TrendingUp, AlertTriangle, Building, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatsCards from './StatsCards';
 import PlantStatsCards from './PlantStatsCards';
@@ -8,9 +8,10 @@ import PlantsWithRecentImagesCard from './PlantsWithRecentImagesCard';
 import DeceasedPlantsCard from './DeceasedPlantsCard';
 import { useApi } from '../../contexts/ApiContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import api from '../../services/api';
 
 function Dashboard({ user, selectedState }) {
-  const { dashboardPlants, loading: dashboardLoading, error: dashboardError } = useDashboard();
+  const { dashboardPlants } = useDashboard();
   const { 
     organizations, 
     domains, 
@@ -19,6 +20,15 @@ function Dashboard({ user, selectedState }) {
     loading, 
     error
   } = useApi();
+
+  const [recentPlantImages, setRecentPlantImages] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    api.getRecentPlantImages({ limit: 30, days: 30 })
+      .then(res => { if (!cancelled && res?.data) setRecentPlantImages(res.data); })
+      .catch(() => { if (!cancelled) setRecentPlantImages([]); });
+    return () => { cancelled = true; };
+  }, [dashboardPlants]);
 
   const [stats, setStats] = useState({
     totalPlants: 0,
@@ -41,6 +51,7 @@ function Dashboard({ user, selectedState }) {
     calculateStats();
     // Reset to first page when data changes
     setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateStats is stable, deps intentionally limited to data
   }, [dashboardPlants, organizations, domains, plots, users, selectedState]);
 
   const calculateStats = useCallback(() => {
@@ -293,6 +304,27 @@ function Dashboard({ user, selectedState }) {
           details: `New cultivation domain "${domain.name}" created`
         });
       }
+    });
+
+    // 5. Plant image upload activities
+    (recentPlantImages || []).forEach(img => {
+      const uploadDate = new Date(img.uploadedAt);
+      const plantName = img.plantName || 'Plant';
+      const [year, month] = (img.month || '').split('-');
+      const monthName = year && month
+        ? new Date(parseInt(year, 10), parseInt(month, 10) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : img.month || 'Unknown';
+      allActivities.push({
+        id: `${img.id}-image`,
+        type: 'image-upload',
+        name: plantName,
+        action: 'Image uploaded',
+        date: uploadDate,
+        status: img.plantHealth || 'good',
+        icon: '📷',
+        category: 'plant',
+        details: `Photo added for ${monthName}`
+      });
     });
   
     // Sort by date (most recent first) and return all activities

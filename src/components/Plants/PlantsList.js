@@ -9,6 +9,26 @@ import SearchableDropdown from '../common/SearchableDropdown';
 import api from '../../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+const PLANTS_FILTERS_STORAGE_KEY = 'sanctity-ferme-plants-filters';
+
+function getStoredFilters() {
+  try {
+    const raw = sessionStorage.getItem(PLANTS_FILTERS_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function storeFilters(obj) {
+  try {
+    sessionStorage.setItem(PLANTS_FILTERS_STORAGE_KEY, JSON.stringify(obj));
+  } catch {
+    // ignore
+  }
+}
+
 function PlantsList({ user, selectedState }) {
   const navigate = useNavigate();
   const { 
@@ -59,29 +79,6 @@ function PlantsList({ user, selectedState }) {
   const filteringInProgress = useRef(false);
   const initialFilterApplied = useRef(false);
   const lastAppliedFilters = useRef(null);
-
-  // Simple reset function - called manually when needed
-  const resetAllFilters = useCallback(() => {
-    console.log('PlantsList: resetAllFilters called - resetting all filters');
-    setFilterOrganization('all');
-    setFilterType('all');
-    setFilterPlot('all');
-    setFilterDomain('all');
-    setFilterCategory('all');
-    setFilterVariety('all');
-    setFilterStatus('all');
-    setNotUpdatedMonthly(false);
-    setHasRecentImages(false);
-    setSearchTerm('');
-    setDebouncedSearchTerm('');
-    
-    // Reset tracking refs
-    lastAppliedFilters.current = null;
-    initialFilterApplied.current = false;
-    
-    // Reset and reload plants data with no filters
-    resetPlantsData();
-  }, [resetPlantsData]);
 
   // Initialize filters from URL parameters - SINGLE useEffect to prevent loops
   useEffect(() => {
@@ -173,13 +170,28 @@ function PlantsList({ user, selectedState }) {
           window.history.replaceState({}, '', currentUrl.toString());
         }, 100);
       } else {
-        console.log('PlantsList: No URL params - resetting all filters');
-        resetAllFilters();
+        // No URL params: restore filters from session so CRUD/navigation doesn't clear them
+        const stored = getStoredFilters();
+        if (stored) {
+          if (stored.filterOrganization != null) setFilterOrganization(stored.filterOrganization);
+          if (stored.filterType != null) setFilterType(stored.filterType);
+          if (stored.filterPlot != null) setFilterPlot(stored.filterPlot);
+          if (stored.filterDomain != null) setFilterDomain(stored.filterDomain);
+          if (stored.filterCategory != null) setFilterCategory(stored.filterCategory);
+          if (stored.filterVariety != null) setFilterVariety(stored.filterVariety);
+          if (stored.filterStatus != null) setFilterStatus(stored.filterStatus);
+          if (stored.notUpdatedMonthly != null) setNotUpdatedMonthly(stored.notUpdatedMonthly);
+          if (stored.hasRecentImages != null) setHasRecentImages(stored.hasRecentImages);
+          if (stored.searchTerm != null) {
+            setSearchTerm(stored.searchTerm);
+            setDebouncedSearchTerm(stored.searchTerm);
+          }
+        }
       }
       
       setUrlParamsInitialized(true);
     }
-  }, [searchParams, urlParamsInitialized, resetAllFilters]);
+  }, [searchParams, urlParamsInitialized]);
 
   // Load categories from database
   useEffect(() => {
@@ -335,6 +347,27 @@ function PlantsList({ user, selectedState }) {
     return filteredPlots;
   }, [plots, user]);
 
+  // Persist filters to sessionStorage so they survive navigation / CRUD (only clear on explicit Clear)
+  useEffect(() => {
+    if (!urlParamsInitialized) return;
+    const hasAny = filterOrganization !== 'all' || filterType !== 'all' || filterPlot !== 'all' ||
+      filterDomain !== 'all' || filterCategory !== 'all' || filterVariety !== 'all' ||
+      filterStatus !== 'all' || notUpdatedMonthly || hasRecentImages || !!searchTerm;
+    if (!hasAny) return;
+    storeFilters({
+      filterOrganization,
+      filterType,
+      filterPlot,
+      filterDomain,
+      filterCategory,
+      filterVariety,
+      filterStatus,
+      notUpdatedMonthly,
+      hasRecentImages,
+      searchTerm
+    });
+  }, [urlParamsInitialized, filterOrganization, filterType, filterPlot, filterDomain, filterCategory, filterVariety, filterStatus, notUpdatedMonthly, hasRecentImages, searchTerm]);
+
   // Reset plot filter when domain filter changes (only if current plot is not in selected domain)
   useEffect(() => {
     if (filterDomain !== 'all' && filterPlot !== 'all') {
@@ -368,9 +401,15 @@ function PlantsList({ user, selectedState }) {
     }
   }, [hasActiveFilters, filtersExpanded]);
 
-  // Function to clear all filters - optimized to prevent multiple re-renders
+  // Function to clear all filters - only way filters are removed (not on CRUD/navigation)
   const clearAllFilters = useCallback(() => {
+    try {
+      sessionStorage.removeItem(PLANTS_FILTERS_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
     setSearchTerm('');
+    setDebouncedSearchTerm('');
     setFilterOrganization('all');
     setFilterType('all');
     setFilterPlot('all');
@@ -380,9 +419,11 @@ function PlantsList({ user, selectedState }) {
     setFilterStatus('all');
     setNotUpdatedMonthly(false);
     setHasRecentImages(false);
-    // Close filters when all are cleared
     setFiltersExpanded(false);
-  }, []);
+    lastAppliedFilters.current = null;
+    initialFilterApplied.current = false;
+    resetPlantsData();
+  }, [resetPlantsData]);
 
   // Count active filters
   const activeFilterCount = [
@@ -923,7 +964,7 @@ function PlantsList({ user, selectedState }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterOrganization, filterType, filterPlot, filterDomain, filterCategory, filterVariety, filterStatus, notUpdatedMonthly, hasRecentImages, debouncedSearchTerm, urlParamsInitialized]);
-  // Note: resetPlantsInfiniteScroll and resetAllFilters are intentionally omitted from deps to prevent infinite loops
+  // Note: resetPlantsInfiniteScroll intentionally omitted from deps to prevent infinite loops
 
   // Handle loading more plants
   const handleLoadMore = useCallback(() => {

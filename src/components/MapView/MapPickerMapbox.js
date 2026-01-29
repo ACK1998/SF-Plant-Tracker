@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Map, NavigationControl, Source, Layer, Marker } from 'react-map-gl/mapbox';
 import { AlertTriangle } from 'lucide-react';
 import { 

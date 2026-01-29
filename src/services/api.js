@@ -630,6 +630,18 @@ class ApiService {
     }
   }
 
+  async getRecentPlantImages(params = {}) {
+    try {
+      const limit = params.limit != null ? params.limit : 30;
+      const days = params.days != null ? params.days : 30;
+      const query = new URLSearchParams({ limit, days }).toString();
+      return await this.request(`/plant-images/recent?${query}`);
+    } catch (error) {
+      console.error('Failed to get recent plant images:', error);
+      throw error;
+    }
+  }
+
   // Plant Types API
   async getPlantTypes(params = {}) {
     try {

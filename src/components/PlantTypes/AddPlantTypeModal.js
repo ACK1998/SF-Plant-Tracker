@@ -17,7 +17,7 @@ function AddPlantTypeModal({ onClose, onAdd, onSuccess, defaultCategory = 'veget
 
   const [errors, setErrors] = useState({});
   const [dbCategories, setDbCategories] = useState([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [, setLoadingCategories] = useState(true);
 
   // Load categories from database
   useEffect(() => {

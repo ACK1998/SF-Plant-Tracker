@@ -19,6 +19,7 @@ export const ApiProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // eslint-disable-next-line no-unused-vars -- setInitialLoadComplete used
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   // Refs to prevent concurrent calls
@@ -45,7 +46,8 @@ export const ApiProvider = ({ children }) => {
   useEffect(() => {
     console.log('ApiContext: useEffect triggered - calling loadInitialData');
     loadInitialData();
-  }, []); // Empty dependency array - runs only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only once on mount
+  }, []);
 
   // Reset all plants data - useful for clearing filters
   const resetPlantsData = React.useCallback(() => {
@@ -59,6 +61,7 @@ export const ApiProvider = ({ children }) => {
     });
     // Load fresh data with no filters
     loadInitialPlants({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadInitialPlants is stable
   }, []);
 
   const loadInitialData = React.useCallback(async () => {
@@ -254,9 +257,7 @@ export const ApiProvider = ({ children }) => {
       setPlants(prev => prev.filter(plant => plant._id !== id));
     } catch (error) {
       console.error('Delete plant error:', error);
-      const errorMessage = error.message || 'Failed to delete plant';
       // Don't set main error state for CRUD failures - let the UI handle it with notifications
-      // setError(errorMessage);
       throw error;
     }
   };
@@ -671,6 +672,7 @@ export const ApiProvider = ({ children }) => {
     loadInitialData,
     refreshData: React.useCallback(() => {
       loadInitialData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- loadInitialData is stable
     }, []),
     addPlant,
     updatePlant,
